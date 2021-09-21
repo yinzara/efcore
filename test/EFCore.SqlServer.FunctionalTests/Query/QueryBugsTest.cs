@@ -10341,6 +10341,358 @@ ORDER BY [t].[Id]");
 
         #endregion
 
+
+        [ConditionalFact]
+        public virtual void FilteredIncludeTest()
+        {
+            using (var ctx = new FFM_DbContext())
+            {
+                ctx.Database.EnsureDeleted();
+                ctx.Database.EnsureCreated();
+            }
+
+            using (var ctx = new FFM_DbContext())
+            {
+                var id = Guid.Parse("5AB4CB69-7982-44FA-97CD-03E1D386E5E6");
+
+                var query2 =
+                    ctx.orderPartsHeader.Where(m => m.id == id)
+                    //.AsSplitQuery()
+                    .Include(x => x.orderParts.OrderByDescending(x => x.createdOnDate).Take(1))
+                    .ThenInclude(x => x.customerParts.customerPartsHeader.customerParts.OrderByDescending(x => x.createdOnDate).Take(1))
+                    .FirstOrDefault();// m => m.id == id)                                            ;
+
+                Console.WriteLine(query2);
+            }
+        }
+
+        [Index(nameof(userfriendlyName), IsUnique = false)]
+        public class customerParts : tableHeaderChild
+        {
+            //ID of the customerPartsHeader
+            [Column(Order = 200)]
+            [Display(Name = "ID of the customerParts Header")]
+            public System.Guid customerPartsHeaderId { get; set; }
+            [ForeignKey("customerPartsHeaderId")]
+            public virtual customerPartsHeader customerPartsHeader { get; set; }
+
+            //Name of the Customer Part
+            [Column("userfriendlyName", Order = 201)]
+            [MaxLength(255)]
+            [Display(Name = "user friendly Name")]
+            public string userfriendlyName { get; set; }
+
+
+            //Name
+            [Column("name", Order = 201)]
+            [MaxLength(255)]
+            [Display(Name = "name")]
+            public string name { get; set; }
+
+
+            //Description
+            [Column("description", Order = 201)]
+            [MaxLength(255)]
+            [Display(Name = "description")]
+            public string description { get; set; }
+        }
+
+        public class customerPartsHeader : tableHeaderParent
+        {
+            public List<customerParts> customerParts { get; set; }
+        }
+
+        [Index(nameof(userfriendlyName), IsUnique = false)]
+        [Index(nameof(orderQty), IsUnique = false)]
+        [Index(nameof(orderWt), IsUnique = false)]
+        public class orderParts : tableHeaderChild
+        {
+            // ID of the orderPartsHeader
+            [Column(Order = 200)]
+            [Display(Name = "ID of the orderParts Header")]
+            public System.Guid orderPartsHeaderId { get; set; }
+            [ForeignKey("orderPartsHeaderId")]
+            public virtual orderPartsHeader orderPartsHeader { get; set; }
+
+            // ID of the orderPartsHeader
+            [Column(Order = 201)]
+            [Display(Name = "Id of the customer parts child item")]
+            public System.Guid customerPartsId { get; set; }
+            [ForeignKey("customerPartsId")]
+            public virtual customerParts customerParts { get; set; }
+
+            // Name of the Order Part
+            [Column("userfriendlyName", Order = 202)]
+            [MaxLength(50)]
+            [Display(Name = "user friendly Name")]
+            public string userfriendlyName { get; set; }
+
+            // Order Part Qty
+            [Column("orderQty", Order = 203)]
+            [Display(Name = "orderQty")]
+            public int? orderQty { get; set; }
+
+            // Order Part Wt
+            [Column("orderWt", Order = 204, TypeName = "decimal(18, 3)")]
+            [Display(Name = "orderWt")]
+            public decimal? orderWt { get; set; }
+        }
+
+        public class orderPartsHeader : tableHeaderParent
+        {
+            //ID of the ordersHeader
+            [Column(Order = 200)]
+            [Display(Name = "ID of the orders Header")]
+            public System.Guid ordersHeaderId { get; set; }
+
+            // Order Line Number
+            [Column("lineNumber", Order = 201)]
+            [Display(Name = "lineNumber")]
+            public int lineNumber { get; set; }
+
+            public List<orderParts> orderParts { get; set; }
+        }
+
+        public abstract class tableHeader : tableHeaderParent
+        {
+            //The date the record was created
+            [Column("createdOnDate", Order = 5)]
+            [Display(Name = "Created On Date")]
+            [Required]
+            public DateTime createdOnDate { get; set; } = DateTime.UtcNow;
+
+            //User ID of the user who created the record
+            [Column("createdByUserId", Order = 6)]
+            [Display(Name = "Created By User ID")]
+            [Required]
+            public Guid createdByUserId { get; set; }
+
+            //User IP Address of the user who created the record
+            [Column("createdByIp", Order = 7)]
+            [MaxLength(50)]
+            [Display(Name = "Created By IP")]
+            [Required]
+            public string createdByIp { get; set; }
+        }
+
+        [Index(nameof(createdOnDate), IsUnique = false)]
+        public abstract class tableHeaderChild
+        {
+            //The ID of your object with the name of the Contacts
+            [Key]
+            [Column("id", Order = 0)]
+            [Required]
+            public Guid id { get; set; }
+
+
+            //A byte[] with the name of the vBinChangeKey Change Key is used in some tables for recored change history. When the applaction requires advanced tracking.
+            [Column("changeKey", Order = 2)]
+            [Display(Name = "Change Key")]
+            [Timestamp]
+            public byte[] changeKey { get; set; }
+
+            //The date the record was created
+            [Column("createdOnDate", Order = 5)]
+            [Display(Name = "Created On Date")]
+            [Required]
+            public DateTime createdOnDate { get; set; } = DateTime.UtcNow;
+
+            //User ID of the user who created the record
+            [Column("createdByUserId", Order = 6)]
+            [Display(Name = "Created By User ID")]
+            [Required]
+            public Guid createdByUserId { get; set; }
+
+            //User IP Address of the user who created the record
+            [Column("createdByIp", Order = 7)]
+            [MaxLength(50)]
+            [Display(Name = "Created By IP")]
+            [Required]
+            public string createdByIp { get; set; }
+        }
+
+        [Index(nameof(isDeleted), IsUnique = false)]
+        public abstract class tableHeaderParent
+        {
+            //The ID of your object with the name of the Contacts
+            [Key]
+            [Column("id", Order = 0)]
+            [Required]
+            public Guid id { get; set; }
+
+
+            //A byte[] with the name of the vBinChangeKey Change Key is used in some tables for recored change history. When the applaction requires advanced tracking.
+            [Column("changeKey", Order = 2)]
+            [Display(Name = "Change Key")]
+            [Timestamp]
+            public byte[] changeKey { get; set; }
+
+            // A Bool with the name of the bitRecordActive used to disable a Recipient
+            [Column("isActive", Order = 3)]
+            [Display(Name = "Is Active")]
+            [Required]
+            public bool isActive { get; set; } = true;
+
+            //A Bool with the name of the bitRecordDeleted used to delete a record
+            [Column("isDeleted", Order = 4)]
+            [Display(Name = "Is Deleted")]
+            public bool? isDeleted { get; set; } = false;
+
+            //The date the record was Updated
+            [Column("lastModifiedOnDate", Order = 8)]
+            [Display(Name = "Last Modified On Date")]
+            public DateTime? lastModifiedOnDate { get; set; } = DateTime.UtcNow;
+
+            //User ID of the user who Updated the record
+            [Column("lastModifiedByUserId", Order = 9)]
+            [Display(Name = "Last Modified By User ID")]
+            public Guid? lastModifiedByUserId { get; set; }
+
+            //User IP Address of the user who Updated the record
+            [Column("lastModifiedByIp", Order = 10)]
+            [MaxLength(50)]
+            [Display(Name = "Last Modified By IP")]
+            public string lastModifiedByIp { get; set; }
+
+            //The date the record was Deleted
+            [Column("deletedOnDate", Order = 11)]
+            [Display(Name = "Deleted On Date")]
+            public DateTime? deletedOnDate { get; set; }
+
+            //User ID of the user who Deleted the record
+            [Column("deletedByUserId", Order = 12)]
+            [Display(Name = "Deleted By User ID")]
+            public Guid? deletedByUserId { get; set; }
+
+            //User IP Address of the user who Deleted the record
+            [Column("deletedByIp", Order = 13)]
+            [MaxLength(50)]
+            [Display(Name = "Deleted By IP")]
+            public string deletedByIp { get; set; }
+
+            //The date the record was Approved
+            [Column("approvedRejectedOnDate", Order = 14)]
+            [Display(Name = "Approved Rejected On Date")]
+            public DateTime? approvedRejectedOnDate { get; set; }
+
+            //User ID of the user who Approved the record
+            [Column("approvedRejectedByUserId", Order = 15)]
+            [Display(Name = "Approved Rejected By User ID")]
+            public Guid? approvedRejectedByUserId { get; set; }
+
+            //User IP Address of the user who deleted the record
+            [Column("approvedRejectedByIp", Order = 16)]
+            [MaxLength(50)]
+            [Display(Name = "Approved Rejected By IP")]
+            public string approvedRejectedByIp { get; set; }
+        }
+
+
+        public class FFM_DbContext : DbContext
+        {
+            public DbSet<customerParts> customerParts { get; set; }
+            public DbSet<customerPartsHeader> customerPartsHeader { get; set; }
+
+            public DbSet<orderParts> orderParts { get; set; }
+            public DbSet<orderPartsHeader> orderPartsHeader { get; set; }
+
+
+            protected override void OnModelCreating(ModelBuilder modelBuilder)
+            {
+                modelBuilder.Entity<customerPartsHeader>().HasData(
+                    new customerPartsHeader
+                    {
+                        id = Guid.Parse("596EFBFF-8C30-4B75-BFDB-EF7E05B5F96D"),
+                        isActive = true,
+                        isDeleted = false,
+                        lastModifiedOnDate = null,
+                        lastModifiedByUserId = null,
+                        lastModifiedByIp = null,
+                        deletedOnDate = null,
+                        deletedByUserId = null,
+                        approvedRejectedByUserId = null,
+                        approvedRejectedOnDate = null,
+                        approvedRejectedByIp = ""
+                    });
+
+
+                modelBuilder.Entity<customerParts>().HasData(
+                    new customerParts
+                    {
+                        id = Guid.Parse("BF4349A0-2CBA-4646-BAA7-0BAFEEBA9F8C"),
+                        createdOnDate = new DateTime(2018, 12, 17, 9, 32, 20, 426, DateTimeKind.Unspecified),
+                        createdByUserId = Guid.Parse("31A1793A-9453-48CD-9909-7C157DAE6A8A"),
+                        createdByIp = "",
+                        customerPartsHeaderId = Guid.Parse("596EFBFF-8C30-4B75-BFDB-EF7E05B5F96D"),
+                        userfriendlyName = "OLD CUSTOMER PART",
+                        name = "name 1",
+                        description = "desc 1"
+                    },
+                    new customerParts
+                    {
+                        id = Guid.Parse("D13195C6-2D9E-46B0-B633-AA9E074EA15F"),
+                        createdOnDate = new DateTime(2019, 6, 17, 9, 32, 20, 426, DateTimeKind.Unspecified),
+                        createdByUserId = Guid.Parse("31A1793A-9453-48CD-9909-7C157DAE6A8A"),
+                        createdByIp = "",
+                        customerPartsHeaderId = Guid.Parse("596EFBFF-8C30-4B75-BFDB-EF7E05B5F96D"),
+                        userfriendlyName = "Second NEW CUSTOMER PART",
+                        name = "Second Name Changed",
+                        description = "New Description"
+                    },
+                    new customerParts
+                    {
+                        id = Guid.Parse("d50a0954-4e64-4ed5-bb06-fb980d29f27c"),
+                        createdOnDate = new DateTime(2019, 1, 17, 9, 32, 20, 426, DateTimeKind.Unspecified),
+                        createdByUserId = Guid.Parse("31A1793A-9453-48CD-9909-7C157DAE6A8A"),
+                        createdByIp = "",
+                        customerPartsHeaderId = Guid.Parse("596EFBFF-8C30-4B75-BFDB-EF7E05B5F96D"),
+                        userfriendlyName = "FIRST NEW CUSTOMER PART",
+                        name = "First Name Changed",
+                        description = "New Description"
+                    }
+
+                    );
+
+                modelBuilder.Entity<orderPartsHeader>().HasData(
+                    new orderPartsHeader
+                    {
+                        id = Guid.Parse("5AB4CB69-7982-44FA-97CD-03E1D386E5E6"),
+                        isActive = true,
+                        isDeleted = false,
+                        lastModifiedOnDate = null,
+                        lastModifiedByUserId = null,
+                        lastModifiedByIp = null,
+                        deletedOnDate = null,
+                        deletedByUserId = null,
+                        approvedRejectedByUserId = null,
+                        approvedRejectedOnDate = null,
+                        approvedRejectedByIp = "",
+                        lineNumber = 1
+                    });
+
+
+                modelBuilder.Entity<orderParts>().HasData(
+                    new orderParts
+                    {
+                        id = Guid.Parse("579F9060-4B69-4AC6-B1D1-D7988F3F5D26"),
+                        createdOnDate = new DateTime(2018, 12, 17, 9, 32, 20, 426, DateTimeKind.Unspecified),
+                        createdByUserId = Guid.Parse("31A1793A-9453-48CD-9909-7C157DAE6A8A"),
+                        createdByIp = "",
+                        orderPartsHeaderId = Guid.Parse("5AB4CB69-7982-44FA-97CD-03E1D386E5E6"),
+                        userfriendlyName = "Order Part 1",
+                        orderQty = 100,
+                        orderWt = (decimal?)2.3,
+                        customerPartsId = Guid.Parse("BF4349A0-2CBA-4646-BAA7-0BAFEEBA9F8C")
+                    }
+                    );
+            }
+
+            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            {
+                optionsBuilder.UseSqlServer(@"Server=(localdb)\mssqllocaldb;Database=Repro;Trusted_Connection=True;MultipleActiveResultSets=true");
+            }
+        }
+
         protected override string StoreName => "QueryBugsTest";
         protected TestSqlLoggerFactory TestSqlLoggerFactory
             => (TestSqlLoggerFactory)ListLoggerFactory;
