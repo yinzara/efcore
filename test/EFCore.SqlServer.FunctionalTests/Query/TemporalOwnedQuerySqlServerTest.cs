@@ -358,11 +358,19 @@ namespace Microsoft.EntityFrameworkCore.Query
                 modelBuilder.Entity<Barton>(
                     b =>
                     {
-                        b.ToTable(ttb => ttb.IsTemporal());
+                        b.ToTable(tb => tb.IsTemporal(ttb =>
+                        {
+                            ttb.HasPeriodStart("PeriodStart").HasColumnName("PeriodStart");
+                            ttb.HasPeriodEnd("PeriodEnd").HasColumnName("PeriodEnd");
+                        }));
                         b.OwnsOne(
                             e => e.Throned, b =>
                             {
-                                b.ToTable(ttb => ttb.IsTemporal());
+                                b.ToTable(tb => tb.IsTemporal(ttb =>
+                                {
+                                    ttb.HasPeriodStart("PeriodStart").HasColumnName("PeriodStart");
+                                    ttb.HasPeriodEnd("PeriodEnd").HasColumnName("PeriodEnd");
+                                }));
                                 b.HasData(
                                     new
                                     {
