@@ -53,10 +53,6 @@ namespace Microsoft.EntityFrameworkCore.Query
             ISqlExpressionFactory sqlExpressionFactory,
             IRelationalSharedTypeEntityExpansionHelper relationalSharedTypeEntityExpansionHelper)
         {
-            Check.NotNull(relationalSqlTranslatingExpressionVisitorFactory, nameof(relationalSqlTranslatingExpressionVisitorFactory));
-            Check.NotNull(sqlExpressionFactory, nameof(sqlExpressionFactory));
-            Check.NotNull(relationalSharedTypeEntityExpansionHelper, nameof(relationalSharedTypeEntityExpansionHelper));
-
             RelationalSqlTranslatingExpressionVisitorFactory = relationalSqlTranslatingExpressionVisitorFactory;
             SqlExpressionFactory = sqlExpressionFactory;
             RelationalSharedTypeEntityExpansionHelper = relationalSharedTypeEntityExpansionHelper;
