@@ -47,7 +47,9 @@ namespace Microsoft.EntityFrameworkCore.Query
             await base.Query_loads_reference_nav_automatically_in_projection(async);
 
             AssertSql(
-                @"");
+                @"SELECT TOP(2) [b].[Id], [b].[PeriodEnd], [b].[PeriodStart], [b].[Simple], [b].[Throned_Property], [b].[Throned_Value]
+FROM [Fink] FOR SYSTEM_TIME AS OF '2010-01-01T00:00:00.0000000' AS [f]
+LEFT JOIN [Barton] FOR SYSTEM_TIME AS OF '2010-01-01T00:00:00.0000000' AS [b] ON [f].[BartonId] = [b].[Id]");
         }
 
         private void AssertSql(params string[] expected)

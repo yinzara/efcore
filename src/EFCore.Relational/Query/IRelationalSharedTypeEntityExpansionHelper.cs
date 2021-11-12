@@ -1,6 +1,7 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,5 +29,12 @@ namespace Microsoft.EntityFrameworkCore.Query
         public SelectExpression CreateInnerSelectExpression(
             TableExpressionBase sourceTable,
             IEntityType targetEntityType);
+
+        /// <summary>
+        /// Returns true if the given table expression matches table metadata, false otherwise.
+        /// </summary>
+        public bool TableMatchesMetadata(
+            TableExpressionBase tableExpression,
+            ITableBase tableMetadata);
     }
 }

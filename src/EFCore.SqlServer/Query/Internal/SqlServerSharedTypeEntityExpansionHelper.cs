@@ -45,5 +45,12 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Query.Internal
 
             return base.CreateInnerSelectExpression(sourceTable, targetEntityType);
         }
+
+        /// <inheritdoc/>
+        public override bool TableMatchesMetadata(TableExpressionBase tableExpression, ITableBase tableMetadata)
+            => base.TableMatchesMetadata(tableExpression, tableMetadata)
+                || (tableExpression is TemporalTableExpression table
+                    && table.Name == tableMetadata.Name
+                    && table.Schema == tableMetadata.Schema);
     }
 }

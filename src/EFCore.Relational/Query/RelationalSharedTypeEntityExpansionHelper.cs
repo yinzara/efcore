@@ -28,5 +28,11 @@ namespace Microsoft.EntityFrameworkCore.Query
             TableExpressionBase sourceTable,
             IEntityType targetEntityType)
             => Dependencies.SqlExpressionFactory.Select(targetEntityType);
+
+        /// <inheritdoc/>
+        public virtual bool TableMatchesMetadata(TableExpressionBase tableExpression, ITableBase tableMetadata)
+            => tableExpression is TableExpression table
+                && table.Name == tableMetadata.Name
+                && table.Schema == tableMetadata.Schema;
     }
 }

@@ -1181,7 +1181,12 @@ namespace Microsoft.EntityFrameworkCore.Query
                                 && navigation.DeclaringEntityType.IsStrictlyDerivedFrom(entityShaperExpression.EntityType));
 
                         var entityProjection = _selectExpression.GenerateWeakEntityProjectionExpression(
-                            targetEntityType, table, identifyingColumn.Name, identifyingColumn.Table, principalNullable);
+                            targetEntityType,
+                            table,
+                            identifyingColumn.Name,
+                            identifyingColumn.Table,
+                            _sharedTypeEntityExpansionHelper,
+                            principalNullable);
 
                         if (entityProjection != null)
                         {
@@ -1235,7 +1240,12 @@ namespace Microsoft.EntityFrameworkCore.Query
                         innerShaper = new RelationalEntityShaperExpression(
                             targetEntityType,
                             _selectExpression.GenerateWeakEntityProjectionExpression(
-                                targetEntityType, table, null, leftJoinTable, nullable: true)!,
+                                targetEntityType,
+                                table,
+                                null,
+                                leftJoinTable,
+                                _sharedTypeEntityExpansionHelper,
+                                nullable: true)!,
                             nullable: true);
                     }
 
