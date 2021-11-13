@@ -81,6 +81,11 @@ ORDER BY [s].[Id]");
                 modelBuilder.Entity<OwnedPerson>(
                     eb =>
                     {
+                        eb.ToTable(tb => tb.IsTemporal(ttb =>
+                        {
+                            ttb.HasPeriodStart("PeriodStart").HasColumnName("PeriodStart");
+                            ttb.HasPeriodEnd("PeriodEnd").HasColumnName("PeriodEnd");
+                        }));
                         eb.IndexerProperty<string>("Name");
                         var ownedPerson = new OwnedPerson { Id = 1 };
                         ownedPerson["Name"] = "Mona Cy";
@@ -89,6 +94,11 @@ ORDER BY [s].[Id]");
                         eb.OwnsOne(
                             p => p.PersonAddress, ab =>
                             {
+                                ab.ToTable(tb => tb.IsTemporal(ttb =>
+                                {
+                                    ttb.HasPeriodStart("PeriodStart").HasColumnName("PeriodStart");
+                                    ttb.HasPeriodEnd("PeriodEnd").HasColumnName("PeriodEnd");
+                                }));
                                 ab.IndexerProperty<string>("AddressLine");
                                 ab.IndexerProperty(typeof(int), "ZipCode");
                                 ab.HasData(
@@ -124,6 +134,11 @@ ORDER BY [s].[Id]");
                                 ab.OwnsOne(
                                     a => a.Country, cb =>
                                     {
+                                        cb.ToTable(tb => tb.IsTemporal(ttb =>
+                                        {
+                                            ttb.HasPeriodStart("PeriodStart").HasColumnName("PeriodStart");
+                                            ttb.HasPeriodEnd("PeriodEnd").HasColumnName("PeriodEnd");
+                                        }));
                                         cb.HasData(
                                             new
                                             {
@@ -158,6 +173,11 @@ ORDER BY [s].[Id]");
                         eb.OwnsMany(
                             p => p.Orders, ob =>
                             {
+                                ob.ToTable(tb => tb.IsTemporal(ttb =>
+                                {
+                                    ttb.HasPeriodStart("PeriodStart").HasColumnName("PeriodStart");
+                                    ttb.HasPeriodEnd("PeriodEnd").HasColumnName("PeriodEnd");
+                                }));
                                 ob.IndexerProperty<DateTime>("OrderDate");
                                 ob.HasData(
                                     new
@@ -194,6 +214,11 @@ ORDER BY [s].[Id]");
 
                                 ob.OwnsMany(e => e.Details, odb =>
                                 {
+                                    odb.ToTable(tb => tb.IsTemporal(ttb =>
+                                    {
+                                        ttb.HasPeriodStart("PeriodStart").HasColumnName("PeriodStart");
+                                        ttb.HasPeriodEnd("PeriodEnd").HasColumnName("PeriodEnd");
+                                    }));
                                     odb.HasData(
                                         new
                                         {
@@ -235,6 +260,11 @@ ORDER BY [s].[Id]");
                         eb.OwnsOne(
                             p => p.BranchAddress, ab =>
                             {
+                                ab.ToTable(tb => tb.IsTemporal(ttb =>
+                                {
+                                    ttb.HasPeriodStart("PeriodStart").HasColumnName("PeriodStart");
+                                    ttb.HasPeriodEnd("PeriodEnd").HasColumnName("PeriodEnd");
+                                }));
                                 ab.IndexerProperty<string>("BranchName").IsRequired();
                                 ab.HasData(
                                     new
@@ -253,6 +283,11 @@ ORDER BY [s].[Id]");
                                 ab.OwnsOne(
                                     a => a.Country, cb =>
                                     {
+                                        cb.ToTable(tb => tb.IsTemporal(ttb =>
+                                        {
+                                            ttb.HasPeriodStart("PeriodStart").HasColumnName("PeriodStart");
+                                            ttb.HasPeriodEnd("PeriodEnd").HasColumnName("PeriodEnd");
+                                        }));
                                         cb.HasData(
                                             new
                                             {
@@ -280,6 +315,11 @@ ORDER BY [s].[Id]");
                         eb.OwnsOne(
                             p => p.LeafAAddress, ab =>
                             {
+                                ab.ToTable(tb => tb.IsTemporal(ttb =>
+                                {
+                                    ttb.HasPeriodStart("PeriodStart").HasColumnName("PeriodStart");
+                                    ttb.HasPeriodEnd("PeriodEnd").HasColumnName("PeriodEnd");
+                                }));
                                 ab.IndexerProperty<int>("LeafType");
 
                                 ab.HasData(
@@ -293,6 +333,11 @@ ORDER BY [s].[Id]");
                                 ab.OwnsOne(
                                     a => a.Country, cb =>
                                     {
+                                        cb.ToTable(tb => tb.IsTemporal(ttb =>
+                                        {
+                                            ttb.HasPeriodStart("PeriodStart").HasColumnName("PeriodStart");
+                                            ttb.HasPeriodEnd("PeriodEnd").HasColumnName("PeriodEnd");
+                                        }));
                                         cb.HasOne(c => c.Planet).WithMany().HasForeignKey(c => c.PlanetId)
                                             .OnDelete(DeleteBehavior.Restrict);
 
@@ -317,6 +362,11 @@ ORDER BY [s].[Id]");
                         eb.OwnsOne(
                             p => p.LeafBAddress, ab =>
                             {
+                                ab.ToTable(tb => tb.IsTemporal(ttb =>
+                                {
+                                    ttb.HasPeriodStart("PeriodStart").HasColumnName("PeriodStart");
+                                    ttb.HasPeriodEnd("PeriodEnd").HasColumnName("PeriodEnd");
+                                }));
                                 ab.IndexerProperty<string>("LeafBType").IsRequired();
                                 ab.HasData(
                                     new
@@ -329,6 +379,11 @@ ORDER BY [s].[Id]");
                                 ab.OwnsOne(
                                     a => a.Country, cb =>
                                     {
+                                        cb.ToTable(tb => tb.IsTemporal(ttb =>
+                                        {
+                                            ttb.HasPeriodStart("PeriodStart").HasColumnName("PeriodStart");
+                                            ttb.HasPeriodEnd("PeriodEnd").HasColumnName("PeriodEnd");
+                                        }));
                                         cb.HasOne(c => c.Planet).WithMany().HasForeignKey(c => c.PlanetId)
                                             .OnDelete(DeleteBehavior.Restrict);
 
@@ -343,16 +398,23 @@ ORDER BY [s].[Id]");
                             });
                     });
 
-                modelBuilder.Entity<Planet>(pb => pb.HasData(new Planet { Id = 1, StarId = 1 }));
+                modelBuilder.Entity<Planet>(pb =>
+                {
+                    pb.ToTable(tb => tb.IsTemporal());
+                    pb.HasData(new Planet { Id = 1, StarId = 1 });
+                });
 
-                modelBuilder.Entity<Moon>(
-                    mb => mb.HasData(
+                modelBuilder.Entity<Moon>(mb =>
+                {
+                    mb.ToTable(tb => tb.IsTemporal());
+                    mb.HasData(
                         new Moon
                         {
                             Id = 1,
                             PlanetId = 1,
                             Diameter = 3474
-                        }));
+                        });
+                });
 
                 modelBuilder.Entity<Star>(
                     sb =>
@@ -428,6 +490,15 @@ ORDER BY [s].[Id]");
 
                 ChangesDate = new DateTime(2010, 1, 1);
 
+
+
+
+                var ownedPeople = context.Set<OwnedPerson>().AsTracking().ToList();
+                foreach (var ownedPerson in ownedPeople)
+                {
+                    ownedPerson["Name"] = "Modified" + ownedPerson["Name"]; 
+                }
+
                 var stars = context.Set<Star>().AsTracking().ToList();
                 foreach (var star in stars)
                 {
@@ -440,6 +511,12 @@ ORDER BY [s].[Id]");
                         }
                     }
                 }
+
+                var planets = context.Set<Planet>().AsTracking().ToList();
+                context.Set<Planet>().RemoveRange(planets);
+
+                var moons = context.Set<Moon>().AsTracking().ToList();
+                context.Set<Moon>().RemoveRange(moons);
 
                 var finks = context.Set<Fink>().AsTracking().ToList();
                 context.Set<Fink>().RemoveRange(finks);
