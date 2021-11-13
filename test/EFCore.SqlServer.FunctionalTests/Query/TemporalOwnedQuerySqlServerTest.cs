@@ -27,6 +27,7 @@ namespace Microsoft.EntityFrameworkCore.Query
             var temporalEntityTypes = new List<Type>
             {
                 typeof(Barton),
+                typeof(Star),
             };
 
             var rewriter = new TemporalPointInTimeQueryRewriter(Fixture.ChangesDate, temporalEntityTypes);
@@ -50,6 +51,17 @@ namespace Microsoft.EntityFrameworkCore.Query
                 @"SELECT TOP(2) [b].[Id], [b].[PeriodEnd], [b].[PeriodStart], [b].[Simple], [b].[Throned_Property], [b].[Throned_Value]
 FROM [Fink] FOR SYSTEM_TIME AS OF '2010-01-01T00:00:00.0000000' AS [f]
 LEFT JOIN [Barton] FOR SYSTEM_TIME AS OF '2010-01-01T00:00:00.0000000' AS [b] ON [f].[BartonId] = [b].[Id]");
+        }
+
+        public override async Task Simple_query_entity_with_owned_collection(bool async)
+        {
+            await base.Simple_query_entity_with_owned_collection(async);
+
+            AssertSql(
+                @"SELECT [s].[Id], [s].[Name], [s].[PeriodEnd], [s].[PeriodStart], [e].[Id], [e].[Name], [e].[PeriodEnd], [e].[PeriodStart], [e].[StarId]
+FROM [Star] FOR SYSTEM_TIME AS OF '2010-01-01T00:00:00.0000000' AS [s]
+LEFT JOIN [Element] FOR SYSTEM_TIME AS OF '2010-01-01T00:00:00.0000000' AS [e] ON [s].[Id] = [e].[StarId]
+ORDER BY [s].[Id]");
         }
 
         private void AssertSql(params string[] expected)
@@ -345,10 +357,20 @@ LEFT JOIN [Barton] FOR SYSTEM_TIME AS OF '2010-01-01T00:00:00.0000000' AS [b] ON
                 modelBuilder.Entity<Star>(
                     sb =>
                     {
+                        sb.ToTable(tb => tb.IsTemporal(ttb =>
+                        {
+                            ttb.HasPeriodStart("PeriodStart").HasColumnName("PeriodStart");
+                            ttb.HasPeriodEnd("PeriodEnd").HasColumnName("PeriodEnd");
+                        }));
                         sb.HasData(new Star { Id = 1, Name = "Sol" });
                         sb.OwnsMany(
                             s => s.Composition, ob =>
                             {
+                                ob.ToTable(tb => tb.IsTemporal(ttb =>
+                                {
+                                    ttb.HasPeriodStart("PeriodStart").HasColumnName("PeriodStart");
+                                    ttb.HasPeriodEnd("PeriodEnd").HasColumnName("PeriodEnd");
+                                }));
                                 ob.HasKey(e => e.Id);
                                 ob.HasData(
                                     new
@@ -406,6 +428,19 @@ LEFT JOIN [Barton] FOR SYSTEM_TIME AS OF '2010-01-01T00:00:00.0000000' AS [b] ON
 
                 ChangesDate = new DateTime(2010, 1, 1);
 
+                var stars = context.Set<Star>().AsTracking().ToList();
+                foreach (var star in stars)
+                {
+                    star.Name = "Modified" + star.Name;
+                    if (star.Composition.Any())
+                    {
+                        foreach (var comp in star.Composition)
+                        {
+                            comp.Name = "Modified" + comp.Name;
+                        }
+                    }
+                }
+
                 var finks = context.Set<Fink>().AsTracking().ToList();
                 context.Set<Fink>().RemoveRange(finks);
 
@@ -425,6 +460,8 @@ LEFT JOIN [Barton] FOR SYSTEM_TIME AS OF '2010-01-01T00:00:00.0000000' AS [b] ON
                 {
                     nameof(Barton),
                     nameof(Fink),
+                    nameof(Star),
+                    nameof(Element),
                 };
 
                 foreach (var tableName in tableNames)

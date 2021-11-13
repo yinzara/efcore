@@ -1892,7 +1892,8 @@ namespace Microsoft.EntityFrameworkCore.Query.SqlExpressions
 
                     if (matchingTableExpressionBase != null)
                     {
-                        tableExpressionBase = matchingTableExpressionBase;
+                        //tableExpressionBase = matchingTableExpressionBase;
+                        tableReferenceExpression = FindTableReference(selectExpression, matchingTableExpressionBase);
                     }
                     else
                     {

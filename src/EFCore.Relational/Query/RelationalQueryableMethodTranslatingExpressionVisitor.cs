@@ -1097,11 +1097,37 @@ namespace Microsoft.EntityFrameworkCore.Query
                     return null;
                 }
 
+                var entityProjectionExpression = (EntityProjectionExpression)
+                    (entityShaperExpression.ValueBufferExpression is ProjectionBindingExpression projectionBindingExpression
+                        ? _selectExpression.GetProjection(projectionBindingExpression)
+                        : entityShaperExpression.ValueBufferExpression);
+
                 var foreignKey = navigation.ForeignKey;
                 if (navigation.IsCollection)
                 {
-                    var innerShapedQuery = CreateShapedQueryExpression(
-                        targetEntityType, _sqlExpressionFactory.Select(targetEntityType));
+                    //// just need any column - we use it only to extract the table it originated from
+                    //var sourceColumn = entityProjectionExpression
+                    //    .BindProperty(
+                    //        navigation.IsOnDependent
+                    //            ? foreignKey.Properties[0]
+                    //            : foreignKey.PrincipalKey.Properties[0]);
+
+                    //var sourceTable = FindRootTableExpressionForColumn(sourceColumn.Table, sourceColumn.Name);
+
+                    //var innerSelectExpression = _sharedTypeEntityExpansionHelper.CreateInnerSelectExpression(
+                    //    sourceTable,
+                    //    targetEntityType);
+
+                    //var innerShapedQuery = CreateShapedQueryExpression(
+                    //    targetEntityType, innerSelectExpression);
+
+                    var innerSelectExpression = BuildInnerSelectExpressionForOwnedTypeMappedToDifferentTable(
+                        entityProjectionExpression,
+                        navigation,
+                        foreignKey,
+                        targetEntityType);
+
+                    var innerShapedQuery = CreateShapedQueryExpression(targetEntityType, innerSelectExpression);
 
                     var makeNullable = foreignKey.PrincipalKey.Properties
                         .Concat(foreignKey.Properties)
@@ -1148,11 +1174,6 @@ namespace Microsoft.EntityFrameworkCore.Query
                         innerShapedQuery,
                         Expression.Quote(correlationPredicate));
                 }
-
-                var entityProjectionExpression = (EntityProjectionExpression)
-                    (entityShaperExpression.ValueBufferExpression is ProjectionBindingExpression projectionBindingExpression
-                        ? _selectExpression.GetProjection(projectionBindingExpression)
-                        : entityShaperExpression.ValueBufferExpression);
 
                 var innerShaper = entityProjectionExpression.BindNavigation(navigation);
                 if (innerShaper == null)
@@ -1202,20 +1223,28 @@ namespace Microsoft.EntityFrameworkCore.Query
                         // So there is no handling for dependent having TPT
                         table = targetEntityType.GetViewOrTableMappings().Single().Table;
 
-                        // just need any column - we use it only to extract the table it originated from
-                        var sourceColumn = entityProjectionExpression
-                            .BindProperty(
-                                navigation.IsOnDependent
-                                    ? foreignKey.Properties[0]
-                                    : foreignKey.PrincipalKey.Properties[0]);
-
-                        var sourceTable = FindRootTableExpressionForColumn(sourceColumn.Table, sourceColumn.Name);
-
-                        var innerSelectExpression = _sharedTypeEntityExpansionHelper.CreateInnerSelectExpression(
-                            sourceTable,
+                        var innerSelectExpression = BuildInnerSelectExpressionForOwnedTypeMappedToDifferentTable(
+                            entityProjectionExpression,
+                            navigation,
+                            foreignKey,
                             targetEntityType);
 
                         var innerShapedQuery = CreateShapedQueryExpression(targetEntityType, innerSelectExpression);
+
+                        //// just need any column - we use it only to extract the table it originated from
+                        //var sourceColumn = entityProjectionExpression
+                        //    .BindProperty(
+                        //        navigation.IsOnDependent
+                        //            ? foreignKey.Properties[0]
+                        //            : foreignKey.PrincipalKey.Properties[0]);
+
+                        //var sourceTable = FindRootTableExpressionForColumn(sourceColumn.Table, sourceColumn.Name);
+
+                        //var innerSelectExpression = _sharedTypeEntityExpansionHelper.CreateInnerSelectExpression(
+                        //    sourceTable,
+                        //    targetEntityType);
+
+                        //var innerShapedQuery = CreateShapedQueryExpression(targetEntityType, innerSelectExpression);
 
                         var makeNullable = foreignKey.PrincipalKey.Properties
                             .Concat(foreignKey.Properties)
@@ -1254,7 +1283,29 @@ namespace Microsoft.EntityFrameworkCore.Query
 
                 return innerShaper;
 
-                TableExpressionBase FindRootTableExpressionForColumn(TableExpressionBase table, string columnName)
+                SelectExpression BuildInnerSelectExpressionForOwnedTypeMappedToDifferentTable(
+                    EntityProjectionExpression entityProjectionExpression,
+                    INavigation navigation,
+                    IForeignKey foreignKey,
+                    IEntityType targetEntityType)
+                {
+                    // just need any column - we use it only to extract the table it originated from
+                    var sourceColumn = entityProjectionExpression
+                        .BindProperty(
+                            navigation.IsOnDependent
+                                ? foreignKey.Properties[0]
+                                : foreignKey.PrincipalKey.Properties[0]);
+
+                    var sourceTable = FindRootTableExpressionForColumn(sourceColumn.Table, sourceColumn.Name);
+
+                    return _sharedTypeEntityExpansionHelper.CreateInnerSelectExpression(
+                        sourceTable,
+                        targetEntityType);
+
+                    //return CreateShapedQueryExpression(targetEntityType, innerSelectExpression);
+                }
+
+                static TableExpressionBase FindRootTableExpressionForColumn(TableExpressionBase table, string columnName)
                 {
                     if (table is JoinExpressionBase joinExpressionBase)
                     {
