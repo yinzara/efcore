@@ -260,6 +260,37 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Internal
                 table);
 
         /// <summary>
+        ///     When multiple temporal entities are mapped to the same table, their period {periodType} properties must map to the same column. Issue happens for entity type '{entityType}' with period property '{periodProperty}' which is mapped to column '{periodColumn}'. Expected period column name is '{expectedColumnName}'.
+        /// </summary>
+        public static string TemporalNotSupportedForTableSplittingWithInconsistentPeriodMapping(
+            object? periodType,
+            object? entityType,
+            object? periodProperty,
+            object? periodColumn,
+            object? expectedColumnName)
+            => string.Format(
+                GetString(
+                    "TemporalNotSupportedForTableSplittingWithInconsistentPeriodMapping",
+                    nameof(periodType),
+                    nameof(entityType),
+                    nameof(periodProperty),
+                    nameof(periodColumn),
+                    nameof(expectedColumnName)),
+                periodType,
+                entityType,
+                periodProperty,
+                periodColumn,
+                expectedColumnName);
+
+        /// <summary>
+        ///     Entity type '{entityType}' should be marked as temporal because it shares table mapping with another entity that has been marked as temporal. Alternatively, other entity types that share the same table must be non-temporal.
+        /// </summary>
+        public static string TemporalAllEntitiesMappedToSameTableMustBeTemporal(object? entityType)
+            => string.Format(
+                GetString("TemporalAllEntitiesMappedToSameTableMustBeTemporal", nameof(entityType)),
+                entityType);
+
+        /// <summary>
         ///     Only root entity type should be marked as temporal. Entity type: '{entityType}'.
         /// </summary>
         public static string TemporalOnlyOnRoot(object? entityType)
@@ -330,6 +361,14 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Internal
             => string.Format(
                 GetString("TemporalSetOperationOnMismatchedSources", nameof(entityType)),
                 entityType);
+
+        /// <summary>
+        ///     Only '{operationName}' temporal operation is supported for entity types that own an entity mapped to a different table.
+        /// </summary>
+        public static string TemporalOwnedTypeMappedToDifferentTableOnlySupportedForAsOf(object? operationName)
+            => string.Format(
+                GetString("TemporalOwnedTypeMappedToDifferentTableOnlySupportedForAsOf", nameof(operationName)),
+                operationName);
 
         /// <summary>
         ///     An exception has been raised that is likely due to a transient failure. Consider enabling transient error resiliency by adding 'EnableRetryOnFailure' to the 'UseSqlServer' call.

@@ -914,9 +914,18 @@ namespace Microsoft.EntityFrameworkCore.Query
             var outerEntityProjection = GetMappedEntityProjectionExpression(selectExpression);
             var outerIsPrincipal = foreignKey.PrincipalEntityType.IsAssignableFrom(outerEntityProjection.EntityType);
 
-            var innerSelect = outerIsPrincipal
-                ? new SelectExpression(foreignKey.DeclaringEntityType, this)
-                : new SelectExpression(foreignKey.PrincipalEntityType, this);
+            var targetEntityType = outerIsPrincipal
+                ? foreignKey.DeclaringEntityType
+                : foreignKey.PrincipalEntityType;
+
+            // TODO: is this always the first table?
+            var outerTable = selectExpression.Tables.First();
+            var innerTable = Dependencies.RelationalSharedTypeEntityExpansionHelper.CreateRelatedTableExpression(outerTable, targetEntityType);
+            var innerSelect = new SelectExpression(targetEntityType, innerTable);
+
+            //var innerSelect = outerIsPrincipal
+            //    ? new SelectExpression(foreignKey.DeclaringEntityType, this)
+            //    : new SelectExpression(foreignKey.PrincipalEntityType, this);
 
             if (outerIsPrincipal)
             {
@@ -937,6 +946,45 @@ namespace Microsoft.EntityFrameworkCore.Query
             var joinPredicate = outerKey.Zip(innerKey, Equal).Aggregate(AndAlso);
 
             selectExpression.AddInnerJoin(innerSelect, joinPredicate);
+
+
+
+
+
+            //static TableExpressionBase FindTableExpression(SelectExpression selectExpression, ITableBase tableBase)
+            //{
+            //    foreach (var tableBase in selectExpression.Tables)
+            //    {
+
+            //    }
+
+            //    if (table is JoinExpressionBase joinExpressionBase)
+            //    {
+            //        table = joinExpressionBase.Table;
+            //    }
+            //    else if (table is SetOperationBase setOperationBase)
+            //    {
+            //        table = setOperationBase.Source1;
+            //    }
+
+            //    if (table is SelectExpression selectExpression)
+            //    {
+            //        var matchingProjection = (ColumnExpression)selectExpression.Projection.Where(p => p.Alias == columnName).Single().Expression;
+
+            //        return FindRootTableExpressionForColumn(matchingProjection.Table, matchingProjection.Name);
+            //    }
+
+            //    return table;
+
+
+
+
+
+
+
+
+
+
         }
 
         private bool AddDiscriminatorCondition(SelectExpression selectExpression, IEntityType entityType)
