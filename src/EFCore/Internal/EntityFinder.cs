@@ -57,6 +57,63 @@ public class EntityFinder<TEntity> : IEntityFinder<TEntity>
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
+    public virtual InternalEntityEntry? FindEntry(IEnumerable<object?> keyValues)
+        // ReSharper disable once PossibleMultipleEnumeration
+        => keyValues.Any(v => v == null)
+            ? null
+            // ReSharper disable once PossibleMultipleEnumeration
+            : FindEntry(keyValues, out _);
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public virtual InternalEntityEntry? FindEntry<TKey>(IProperty property, TKey keyValue)
+    {
+        if (keyValue == null)
+        {
+            return null;
+        }
+
+        var internalEntityEntry = _stateManager.TryGetEntry(key, keyList);
+
+        return internalEntityEntry?.Entity is TEntity ? internalEntityEntry : null;
+
+    }
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public virtual InternalEntityEntry? FindEntry<TKey>(TKey keyValue)
+    {
+        if (keyValue == null)
+        {
+            return null;
+        }
+
+        var key = _entityType.FindPrimaryKey()!;
+        if (key.Properties.Count != 1)
+        {
+            throw new ArgumentException(
+                CoreStrings.FindValueCountMismatch(typeof(TEntity).ShortDisplayName(), key.Properties.Count, 1));
+        }
+
+        var internalEntityEntry = _stateManager.TryGetEntry(key, keyValue);
+
+        return internalEntityEntry?.Entity is TEntity ? internalEntityEntry : null;
+    }
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     object? IEntityFinder.Find(object?[]? keyValues)
         => Find(keyValues);
 
@@ -260,25 +317,30 @@ public class EntityFinder<TEntity> : IEntityFinder<TEntity>
             : navigation.ForeignKey.Properties;
 
     private TEntity? FindTracked(object[] keyValues, out IReadOnlyList<IProperty> keyProperties)
+        => (TEntity?)FindEntry(keyValues, out keyProperties)?.Entity;
+
+    private InternalEntityEntry? FindEntry(IEnumerable<object?> keyValues, out IReadOnlyList<IProperty> keyProperties)
     {
         var key = _entityType.FindPrimaryKey()!;
         keyProperties = key.Properties;
+        var keyList = keyValues as IList<object?> ?? keyValues.ToList();
+        var count = keyList.Count();
 
-        if (keyProperties.Count != keyValues.Length)
+        if (keyProperties.Count != count)
         {
             if (keyProperties.Count == 1)
             {
                 throw new ArgumentException(
-                    CoreStrings.FindNotCompositeKey(typeof(TEntity).ShortDisplayName(), keyValues.Length));
+                    CoreStrings.FindNotCompositeKey(typeof(TEntity).ShortDisplayName(), count));
             }
 
             throw new ArgumentException(
-                CoreStrings.FindValueCountMismatch(typeof(TEntity).ShortDisplayName(), keyProperties.Count, keyValues.Length));
+                CoreStrings.FindValueCountMismatch(typeof(TEntity).ShortDisplayName(), keyProperties.Count, count));
         }
 
-        for (var i = 0; i < keyValues.Length; i++)
+        for (var i = 0; i < count; i++)
         {
-            var valueType = keyValues[i].GetType();
+            var valueType = keyList[i]!.GetType();
             var propertyType = keyProperties[i].ClrType;
             if (valueType != propertyType.UnwrapNullableType())
             {
@@ -288,7 +350,9 @@ public class EntityFinder<TEntity> : IEntityFinder<TEntity>
             }
         }
 
-        return _stateManager.TryGetEntry(key, keyValues)?.Entity as TEntity;
+        var internalEntityEntry = _stateManager.TryGetEntry(key, keyList);
+
+        return internalEntityEntry?.Entity is TEntity ? internalEntityEntry : null;
     }
 
     private static Expression<Func<TEntity, bool>> BuildLambda(IReadOnlyList<IProperty> keyProperties, ValueBuffer keyValues)

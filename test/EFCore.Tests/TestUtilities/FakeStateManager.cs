@@ -116,10 +116,7 @@ public class FakeStateManager : IStateManager
         in ValueBuffer valueBuffer)
         => throw new NotImplementedException();
 
-    public void BeginTrackingQuery()
-        => throw new NotImplementedException();
-
-    public InternalEntityEntry TryGetEntry(IKey key, object[] keyValues)
+    public InternalEntityEntry TryGetEntry(IKey key, IEnumerable<object> keyValues)
         => throw new NotImplementedException();
 
     public InternalEntityEntry TryGetEntry(IKey key, in ValueBuffer valueBuffer, bool throwOnNullKey)

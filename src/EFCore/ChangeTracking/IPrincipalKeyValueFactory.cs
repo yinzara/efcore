@@ -24,7 +24,7 @@ public interface IPrincipalKeyValueFactory<TKey>
     /// </summary>
     /// <param name="keyValues">The key values.</param>
     /// <returns>The key object, or null if any of the key values were null.</returns>
-    object? CreateFromKeyValues(object?[] keyValues);
+    object? CreateFromKeyValues(IEnumerable<object?> keyValues);
 
     /// <summary>
     ///     Creates a key object from key values obtained from their indexed position in the given <see cref="ValueBuffer" />.
