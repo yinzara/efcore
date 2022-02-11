@@ -985,4 +985,83 @@ public static class RelationalPropertyBuilderExtensions
         string? collation,
         bool fromDataAnnotation = false)
         => propertyBuilder.CanSetAnnotation(RelationalAnnotationNames.Collation, collation, fromDataAnnotation);
+
+
+
+
+
+
+    /// <summary>
+    ///     Configures a property to be mapped to json column.
+    /// </summary>
+    /// <remarks>
+    ///     See <see href="https://aka.ms/efcore-docs-modeling">Modeling entity types and relationships</see> for more information and examples.
+    /// </remarks>
+    /// <param name="propertyBuilder">The builder for the property being configured.</param>
+    /// <param name="mapToJson">Value indicating whether the property should be mapped to a json column.</param>
+    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+    public static PropertyBuilder MapToJson(
+        this PropertyBuilder propertyBuilder,
+        bool? mapToJson = true)
+    {
+        propertyBuilder.Metadata.SetMapToJson(mapToJson);
+
+        return propertyBuilder;
+    }
+
+    /// <summary>
+    ///     Configures a property to be mapped to json column.
+    /// </summary>
+    /// <remarks>
+    ///     See <see href="https://aka.ms/efcore-docs-modeling">Modeling entity types and relationships</see> for more information and examples.
+    /// </remarks>
+    /// <typeparam name="TProperty">The type of the property being configured.</typeparam>
+    /// <param name="propertyBuilder">The builder for the property being configured.</param>
+    /// <param name="mapToJson">Value indicating whether the property should be mapped to a json column.</param>
+    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+    public static PropertyBuilder<TProperty> MapToJson<TProperty>(
+        this PropertyBuilder<TProperty> propertyBuilder,
+        bool? mapToJson)
+        => (PropertyBuilder<TProperty>)MapToJson((PropertyBuilder)propertyBuilder, mapToJson);
+
+    /// <summary>
+    ///     Configures a property to be mapped to json column.
+    /// </summary>
+    /// <remarks>
+    ///     See <see href="https://aka.ms/efcore-docs-modeling">Modeling entity types and relationships</see> for more information and examples.
+    /// </remarks>
+    /// <param name="propertyBuilder">The builder for the property being configured.</param>
+    /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+    /// <returns>
+    ///     The same builder instance if the configuration was applied,
+    ///     <see langword="null" /> otherwise.
+    /// </returns>
+    public static IConventionPropertyBuilder? MapToJson(
+        this IConventionPropertyBuilder propertyBuilder,
+        bool fromDataAnnotation = false)
+    {
+        if (!propertyBuilder.CanSetMapToJson(fromDataAnnotation))
+        {
+            return null;
+        }
+
+        propertyBuilder.Metadata.SetMapToJson(fromDataAnnotation);
+        return propertyBuilder;
+    }
+
+    /// <summary>
+    ///     Returns a value indicating whether the given property can be mapped to a json column.
+    /// </summary>
+    /// <remarks>
+    ///     See <see href="https://aka.ms/efcore-docs-modeling">Modeling entity types and relationships</see> for more information and examples.
+    /// </remarks>
+    /// <param name="propertyBuilder">The builder for the property being configured.</param>
+    /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+    /// <returns><see langword="true" /> if the property can be mapped to json column.</returns>
+    public static bool CanSetMapToJson(
+        this IConventionPropertyBuilder propertyBuilder,
+        bool fromDataAnnotation = false)
+        => propertyBuilder.CanSetAnnotation(
+            RelationalAnnotationNames.MapToJson,
+            fromDataAnnotation);
 }

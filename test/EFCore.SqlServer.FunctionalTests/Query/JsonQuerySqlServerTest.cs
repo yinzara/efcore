@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Microsoft.EntityFrameworkCore.Query
 {
@@ -25,10 +26,22 @@ namespace Microsoft.EntityFrameworkCore.Query
                 Assert.Equal(2, result.Count);
 
                 AssertSql(
-                    @"SELECT j.""Id"", j.""Customer"", j.""ToplevelArray""
-FROM ""JsonEntities"" AS j
-WHERE j.""Customer""->>'Name' = 'Joe'
-LIMIT 2");
+                    @"SELECT [j].[Id], [j].[Customer]
+FROM [JsonEntities] AS [j]");
+            }
+        }
+
+        [ConditionalFact]
+        public void Where_on_json_property_access()
+        {
+            using (var ctx = Fixture.CreateContext())
+            {
+                var result = ctx.JsonEntities.Where(e => e.Customer.Name != "Foo").ToList();
+                Assert.Equal(2, result.Count);
+
+                AssertSql(
+                    @"SELECT [j].[Id], [j].[Customer]
+FROM [JsonEntities] AS [j]");
             }
         }
 
@@ -46,7 +59,6 @@ LIMIT 2");
             protected override void Seed(JsonQueryContext context) => JsonQueryContext.Seed(context);
         }
 
-
         public class JsonQueryContext : PoolableDbContext
         {
             public DbSet<JsonEntity> JsonEntities { get; set; }
@@ -59,7 +71,11 @@ LIMIT 2");
                     v => JsonSerializer.Serialize(v, (JsonSerializerOptions)null),
                     v => (JsonCustomer)JsonSerializer.Deserialize(v, typeof(JsonCustomer), (JsonSerializerOptions)null));
 
+                modelBuilder.Entity<JsonEntity>().Property(x => x.Id).ValueGeneratedNever();
                 modelBuilder.Entity<JsonEntity>().Property(x => x.Customer).HasConversion(converter);
+
+                // TODO: add conversion by convention
+                modelBuilder.Entity<JsonEntity>().Property(x => x.Customer).MapToJson();
             }
 
             public static void Seed(JsonQueryContext context)
@@ -149,6 +165,9 @@ LIMIT 2");
         public class JsonStatistics
         {
             public int Visits { get; set; }
+
+
+            [JsonPropertyName("custom_column-name")]
             public int Purchases { get; set; }
             public JsonNestedStatistics Nested { get; set; }
         }

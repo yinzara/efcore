@@ -1468,4 +1468,65 @@ public static class RelationalPropertyExtensions
         this IConventionProperty property,
         in StoreObjectIdentifier storeObject)
         => RelationalPropertyOverrides.GetOrCreate(property, storeObject);
+
+    /// <summary>
+    ///     Returns a flag indicating whether the property is mapped to a json column.
+    /// </summary>
+    /// <param name="property">The property.</param>
+    /// <returns>A flag indicating whether the property is mapped to a json column.</returns>
+    public static bool? IsMappedToJson(this IReadOnlyProperty property)
+        => (bool?)property.FindAnnotation(RelationalAnnotationNames.MapToJson)?.Value;
+
+    /// <summary>
+    ///     Returns a flag indicating whether the property is mapped to a json column.
+    /// </summary>
+    /// <param name="property">The property.</param>
+    /// <param name="storeObject">The identifier of the table-like store object containing the column.</param>
+    /// <returns>A flag indicating whether the property is mapped to a json column.</returns>
+    public static bool? IsMappedToJson(this IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
+    {
+        var annotation = property.FindAnnotation(RelationalAnnotationNames.MapToJson);
+        if (annotation != null)
+        {
+            return (bool?)annotation.Value;
+        }
+
+        var sharedTableRootProperty = property.FindSharedStoreObjectRootProperty(storeObject);
+        return sharedTableRootProperty != null
+            ? IsMappedToJson(sharedTableRootProperty, storeObject)
+            : null;
+    }
+
+    /// <summary>
+    ///     Sets a flag indicating whether the property is mapped to a json column.
+    /// </summary>
+    /// <param name="property">The property.</param>
+    /// <param name="mapToJson">A value indicating whether the property is mapped to a json column.</param>
+    public static void SetMapToJson(this IMutableProperty property, bool? mapToJson)
+        => property.SetOrRemoveAnnotation(RelationalAnnotationNames.MapToJson, mapToJson);
+
+    /// <summary>
+    ///     Sets a flag indicating whether the property is mapped to a json column.
+    /// </summary>
+    /// <param name="property">The property.</param>
+    /// <param name="mapToJson">A value indicating whether the property is mapped to a json column.</param>
+    /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+    /// <returns>The configured value.</returns>
+    public static bool? SetMapToJson(
+        this IConventionProperty property,
+        bool? mapToJson,
+        bool fromDataAnnotation = false)
+    {
+        property.SetOrRemoveAnnotation(RelationalAnnotationNames.MapToJson, mapToJson, fromDataAnnotation);
+
+        return mapToJson;
+    }
+
+    /// <summary>
+    ///     Gets the <see cref="ConfigurationSource" /> for <see cref="IsMappedToJson(IReadOnlyProperty)" />.
+    /// </summary>
+    /// <param name="property">The property.</param>
+    /// <returns>The <see cref="ConfigurationSource" /> for <see cref="IsMappedToJson(IReadOnlyProperty)" />.</returns>
+    public static ConfigurationSource? GetMapToJsonConfigurationSource(this IConventionProperty property)
+        => property.FindAnnotation(RelationalAnnotationNames.MapToJson)?.GetConfigurationSource();
 }
