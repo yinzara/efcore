@@ -253,4 +253,9 @@ public static class RelationalAnnotationNames
     ///     The name for relational model dependencies annotation.
     /// </summary>
     public const string ModelDependencies = Prefix + "ModelDependencies";
+
+    /// <summary>
+    ///     The name for the annotation indicating that the property is mapped to json column.
+    /// </summary>
+    public const string MapToJson = Prefix + "MapToJson";
 }
