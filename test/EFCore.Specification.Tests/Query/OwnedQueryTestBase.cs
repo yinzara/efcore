@@ -536,6 +536,13 @@ public abstract class OwnedQueryTestBase<TFixture> : QueryTestBase<TFixture>
 
     [ConditionalTheory]
     [MemberData(nameof(IsAsyncData))]
+    public virtual Task Qpson(bool async)
+        => AssertQuery(
+            async,
+            ss => ss.Set<OwnedPerson>().Select(c => c.PersonAddress.Country.Name));
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
     public virtual Task Can_OrderBy_indexer_properties(bool async)
         => AssertQuery(
             async,

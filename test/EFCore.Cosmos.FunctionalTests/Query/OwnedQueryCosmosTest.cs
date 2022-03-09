@@ -273,6 +273,14 @@ FROM root c
 WHERE c[""Discriminator""] IN (""OwnedPerson"", ""Branch"", ""LeafB"", ""LeafA"")");
     }
 
+    public override async Task Qpson(bool async)
+    {
+        await base.Qpson(async);
+
+        AssertSql(
+            @"");
+    }
+
     public override async Task Can_project_indexer_properties_converted(bool async)
     {
         await base.Can_project_indexer_properties_converted(async);
