@@ -1142,4 +1142,8 @@ public class QuerySqlGenerator : SqlExpressionVisitor
 
         return unionExpression;
     }
+
+    /// <inheritdoc />
+    protected override Expression VisitJsonEntityExpression(JsonEntityExpression jsonEntityExpression)
+        => jsonEntityExpression;
 }

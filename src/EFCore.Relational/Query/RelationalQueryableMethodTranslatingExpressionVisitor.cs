@@ -1082,7 +1082,51 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                 return null;
             }
 
+            if (entityShaperExpression.ValueBufferExpression is JsonEntityExpression jsonEntityExpression1)
+            {
+                if (!targetEntityType.MappedToJson())
+                {
+                    // TODO: check that the json column is the same???
+                    throw new InvalidOperationException("we should never hit this - every entity expanded should be mapped to json");
+                }
+
+                //var jsonColumn = jsonEntityExpression1.JsonColumn;
+                //var identifyingColumn = (ColumnExpression)jsonEntityExpression1.KeyPropertyExpressionMap.First().Value;
+                //var principalNullable = identifyingColumn.IsNullable;
+
+                //// TODO: DRY!!!!
+                //var table = navigation.DeclaringEntityType.BaseType == null
+                //    || entityType.FindDiscriminatorProperty() != null
+                //        ? navigation.DeclaringEntityType.GetViewOrTableMappings().Single().Table
+                //        : navigation.DeclaringEntityType.GetViewOrTableMappings().Select(tm => tm.Table)
+                //            .Except(navigation.DeclaringEntityType.BaseType.GetViewOrTableMappings().Select(tm => tm.Table))
+                //            .Single();
+
+                //var jsonEntityExpression = jsonEntityExpression1.BindNavigation(navigation);
+
+
+                var innerShaper2 = jsonEntityExpression1.BindNavigation(navigation);
+
+                //var innerShaper2 = new RelationalEntityShaperExpression(
+                //    targetEntityType,
+                //    jsonEntityExpression1.BindNavigation(navigation),
+                //    nullable: true);
+
+                jsonEntityExpression1.AddNavigationBinding(navigation, innerShaper2);
+
+                //return entityShaperExpression;
+
+                return innerShaper2;
+
+
+                //return new RelationalEntityShaperExpression(
+                //    targetEntityType,
+                //    jsonEntityExpression1.BindNavigation(navigation),
+                //    nullable: true);
+            }
+
             var entityProjectionExpression = GetEntityProjectionExpression(entityShaperExpression);
+
             var foreignKey = navigation.ForeignKey;
             if (navigation.IsCollection)
             {
@@ -1142,6 +1186,11 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
             var innerShaper = entityProjectionExpression.BindNavigation(navigation);
             if (innerShaper == null)
             {
+                var foo = navigation.DeclaringEntityType;
+                var bar = navigation.DeclaringEntityType.GetViewOrTableMappings();
+
+
+
                 // Owned types don't support inheritance See https://github.com/dotnet/efcore/issues/9630
                 // So there is no handling for dependent having TPT
                 // If navigation is defined on derived type and entity type is part of TPT then we need to get ITableBase for derived type.
@@ -1156,7 +1205,7 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                 {
                     // Mapped to same table
                     // We get identifying column to figure out tableExpression to pull columns from and nullability of most principal side
-                    var identifyingColumn = entityProjectionExpression.BindProperty(entityType.FindPrimaryKey()!.Properties.First());
+                    var identifyingColumn = entityProjectionExpression.BindKeyProperty(entityType.FindPrimaryKey()!.Properties.First());
                     var principalNullable = identifyingColumn.IsNullable
                         // Also make nullable if navigation is on derived type and and principal is TPT
                         // Since identifying PK would be non-nullable but principal can still be null
@@ -1165,13 +1214,46 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                         || (entityType.FindDiscriminatorProperty() == null
                             && navigation.DeclaringEntityType.IsStrictlyDerivedFrom(entityShaperExpression.EntityType));
 
-                    var entityProjection = _selectExpression.GenerateWeakEntityProjectionExpression(
-                        targetEntityType, table, identifyingColumn.Name, identifyingColumn.Table, principalNullable);
 
-                    if (entityProjection != null)
+                    //EntityProjectionExpression? entityProjection;
+                    if (targetEntityType.MappedToJson())
                     {
-                        innerShaper = new RelationalEntityShaperExpression(targetEntityType, entityProjection, principalNullable);
+                        var jsonColumnName = targetEntityType.GetAnnotation(RelationalAnnotationNames.MapToJsonColumnName).Value as string;
+                        var jsonColumnTypeMapping = targetEntityType.FindRuntimeAnnotationValue(RelationalAnnotationNames.MapToJsonTypeMapping) as RelationalTypeMapping;
+
+                        var jsonColumn = table.Columns.Single(x => x.Name == jsonColumnName);
+
+
+                        var jsonEntityExpression = _selectExpression.GenerateJsonEntityExpression(
+                            targetEntityType,
+                            jsonColumnName!,
+                            jsonColumnTypeMapping!,
+                            table,
+                            identifyingColumn.Table,
+                            // TODO: is this correct????
+                            principalNullable);
+
+                        innerShaper = new RelationalEntityShaperExpression(targetEntityType, jsonEntityExpression, true);
+
+                        //return new RelationalEntityShaperExpression(targetEntityType, jsonEntityExpression, true);
                     }
+                    else
+                    {
+                        var entityProjection = _selectExpression.GenerateWeakEntityProjectionExpression(
+                            targetEntityType, table, identifyingColumn.Name, identifyingColumn.Table, principalNullable);
+
+                        if (entityProjection != null)
+                        {
+                            innerShaper = new RelationalEntityShaperExpression(targetEntityType, entityProjection, principalNullable);
+                        }
+                    }
+
+                    //var entityProjection = _selectExpression.GenerateWeakEntityProjectionExpression(
+                    //    targetEntityType, table, identifyingColumn.Name, identifyingColumn.Table, principalNullable);
+
+                    // maumar: smit's info
+                    // put sqlexpression representing json path instead of entity projection here
+                    // this will do the work of value buffer
                 }
 
                 if (innerShaper == null)
@@ -1247,7 +1329,7 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
             {
                 // just need any column - we use it only to extract the table it originated from
                 var sourceColumn = entityProjectionExpression
-                    .BindProperty(
+                    .BindKeyProperty(
                         navigation.IsOnDependent
                             ? foreignKey.Properties[0]
                             : foreignKey.PrincipalKey.Properties[0]);
@@ -1297,6 +1379,7 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                 ProjectionBindingExpression projectionBindingExpression
                     => (EntityProjectionExpression)_selectExpression.GetProjection(projectionBindingExpression),
                 EntityProjectionExpression entityProjectionExpression => entityProjectionExpression,
+                //EntityMappedToJsonProjectionExpression entityMappedToJsonProjectionExpression => entityMappedToJsonProjectionExpression,
                 _ => throw new InvalidOperationException()
             };
 

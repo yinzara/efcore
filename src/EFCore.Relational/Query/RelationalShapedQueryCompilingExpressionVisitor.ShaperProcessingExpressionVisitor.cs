@@ -3,6 +3,7 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
@@ -112,6 +113,9 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
         // States to convert code to data reader read
         private readonly IDictionary<ParameterExpression, IDictionary<IProperty, int>> _materializationContextBindings
             = new Dictionary<ParameterExpression, IDictionary<IProperty, int>>();
+
+        private readonly IDictionary<ParameterExpression, ParameterExpression> _materializationContextToJsonElementVariableMap
+            = new Dictionary<ParameterExpression, ParameterExpression>();
 
         private readonly IDictionary<ParameterExpression, int> _entityTypeIdentifyingExpressionOffsets
             = new Dictionary<ParameterExpression, int>();
@@ -229,6 +233,8 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
                     _dataReaderParameter,
                     _indexMapParameter);
             }
+
+            //shaperExpression = new JsonElementInjectingExpressionVisitor(_dataReaderParameter).Visit(shaperExpression);
 
             _containsCollectionMaterialization = new CollectionShaperFindingExpressionVisitor()
                 .ContainsCollectionMaterialization(shaperExpression);
@@ -348,6 +354,8 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
             }
         }
 
+        private int _jsonElementCount = 0;
+
         protected override Expression VisitBinary(BinaryExpression binaryExpression)
         {
             if (binaryExpression.NodeType == ExpressionType.Assign
@@ -357,9 +365,68 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
                 var newExpression = (NewExpression)binaryExpression.Right;
                 var projectionBindingExpression = (ProjectionBindingExpression)newExpression.Arguments[0];
 
-                var propertyMap = (IDictionary<IProperty, int>)GetProjectionIndex(projectionBindingExpression);
-                _materializationContextBindings[parameterExpression] = propertyMap;
-                _entityTypeIdentifyingExpressionOffsets[parameterExpression] = propertyMap.Values.Max() + 1;
+                var projectionIndex = GetProjectionIndex(projectionBindingExpression);
+
+                if (projectionIndex is ValueTuple<int, Dictionary<IProperty, int>, string[]> jsonEntityProjections)
+                {
+                    // entity with single projection index = mapped to json
+
+                    _jsonElementCount++;
+
+                    // first element is the index of json column, rest are PKs
+                    var jsonColumnProjectionIndex = jsonEntityProjections.Item1;// jsonEntityProjections[0];
+                    var additionalPath = jsonEntityProjections.Item3;
+
+                    var jsonElement = Expression.Variable(
+                        typeof(JsonElement),
+                        "jsonElement" + _jsonElementCount);
+
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+                    // TODO: instead, build a map of json elements that we already extracted and use those instead of parsing json every time
+                    // but this is a quick hack for now so that we see what issues are ahead
+
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // IMPORTANT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    var jsonElementAssignment = Expression.Assign(
+                        jsonElement,
+                        Expression.Call(
+                            null,
+                            _extractJsonElementMethod,
+                            _dataReaderParameter,
+                            Expression.Constant(jsonColumnProjectionIndex),
+                            Expression.Constant(additionalPath)));
+
+                    _variables.Add(jsonElement);
+                    _expressions.Add(jsonElementAssignment);
+
+                    _materializationContextToJsonElementVariableMap[parameterExpression] = jsonElement;
+                    _materializationContextBindings[parameterExpression] = jsonEntityProjections.Item2;
+                }
+                else
+                {
+                    var propertyMap = (IDictionary<IProperty, int>)projectionIndex;
+                    _materializationContextBindings[parameterExpression] = propertyMap;
+                    _entityTypeIdentifyingExpressionOffsets[parameterExpression] = propertyMap.Values.Max() + 1;
+                }
 
                 var updatedExpression = newExpression.Update(
                     new[] { Expression.Constant(ValueBuffer.Empty), newExpression.Arguments[1] });
@@ -378,6 +445,29 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
             return base.VisitBinary(binaryExpression);
         }
 
+
+        private Expression InjectJsonEntityMaterializers(JsonEntityExpression jsonEntityExpression)
+        {
+            return jsonEntityExpression;
+        }
+
+        //private int entityCount = 0;
+        private readonly MethodInfo _extractJsonElementMethod = typeof(ShaperProcessingExpressionVisitor).GetMethod(nameof(ExtractJsonElement))!;
+
+        public static JsonElement ExtractJsonElement(DbDataReader dataReader, int index, string[] additionalPath)
+        {
+            var jsonString = dataReader.GetString(index);
+            var jsonDocument = JsonDocument.Parse(jsonString);
+            var jsonElement = jsonDocument.RootElement;
+
+            foreach (var pathElement in additionalPath)
+            {
+                jsonElement = jsonElement.GetProperty(pathElement);
+            }
+
+            return jsonElement;
+        }
+
         protected override Expression VisitExtension(Expression extensionExpression)
         {
             switch (extensionExpression)
@@ -386,9 +476,132 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
                 {
                     if (!_variableShaperMapping.TryGetValue(entityShaperExpression.ValueBufferExpression, out var accessor))
                     {
+                    //    if (entityShaperExpression.EntityType.MappedToJson())
+                    //    {
+                    //        entityCount++;
+
+                    //        var projectionBinding = (ProjectionBindingExpression)entityShaperExpression.ValueBufferExpression;
+                    //        var selectExpression = (SelectExpression)projectionBinding.QueryExpression;
+                    //        var projectionIndex = selectExpression.GetProjection(projectionBinding).GetConstantValue<int>();
+
+                    //        var jsonElement = Expression.Variable(
+                    //            typeof(JsonElement),
+                    //            "jsonElement" + entityCount);
+
+                    //        _variables.Add(jsonElement);
+
+
+                    //        _jsonElementAccessMap[]
+
+
+
+
+
+
+                    //        var expressions = new List<Expression>
+                    //{
+                    //    Expression.Assign(
+                    //        jsonElement,
+                    //        Expression.Call(
+                    //            null,
+                    //            _extractJsonElementMethod,
+                    //            _dataReaderParameter,
+                    //            Expression.Constant(projectionIndex))),
+
+                    //        //Expression.TypeAs(
+                    //        //    projectionBinding,
+                    //        //    typeof(string))),
+
+                    //    //Expression.Assign(
+                    //    //    valueParameter,
+                    //    //    CreateGetValueExpression(
+                    //    //        _dataReaderParameter,
+                    //    //        projectionIndex,
+                    //    //        nullable,
+                    //    //        projection.Expression.TypeMapping!,
+                    //    //        valueParameter.Type)));
+
+
+
+
+                    ////Expression.Assign(
+                    ////        jsonDocumentVariable,
+                    ////        Expression.TypeAs(
+                    ////            valueBufferExpression,
+                    ////            typeof(JsonDocument))),
+
+                    //    relationalEntityShaperExpression,
+
+                    //    //Expression.Condition(
+                    //    //    Expression.Equal(jsonElement, Expression.Constant(null, jsonElement.Type)),
+                    //    //    Expression.Constant(null, relationalEntityShaperExpression.Type),
+                    //    //    relationalEntityShaperExpression)
+                    //};
+
+                    //        return Expression.Block(
+                    //            relationalEntityShaperExpression.Type,
+                    //            variables,
+                    //            expressions);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    //    }
+
+                        //start here
+
                         var entityParameter = Expression.Parameter(entityShaperExpression.Type);
                         _variables.Add(entityParameter);
                         var entityMaterializationExpression = _parentVisitor.InjectEntityMaterializers(entityShaperExpression);
+
+                        //if (entityShaperExpression.EntityType.MappedToJson())
+                        //{
+                        //    var entityCount = 1;
+                        //    var jsonElement = Expression.Variable(
+                        //        typeof(JsonElement),
+                        //        "jsonElement" + entityCount);
+
+                        //    _variables.Add(jsonElement);
+
+                        //    _map
+                        //}
+
+
+
+
+
+
+
+
+
                         entityMaterializationExpression = Visit(entityMaterializationExpression);
 
                         _expressions.Add(Expression.Assign(entityParameter, entityMaterializationExpression));
@@ -437,10 +650,28 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
 
                     var projectionIndex = (int)GetProjectionIndex(projectionBindingExpression);
                     var projection = _selectExpression.Projection[projectionIndex];
+
+                    //if (projection.Expression is JsonEntityExpression jsonEntityExpression)
+                    //{
+                    //    var entityParameter = Expression.Parameter(jsonEntityExpression.EntityType.ClrType);
+                    //    _variables.Add(entityParameter);
+                    //    var entityMaterializationExpression = InjectJsonEntityMaterializers(jsonEntityExpression);
+                    //    entityMaterializationExpression = Visit(entityMaterializationExpression);
+
+                    //    _expressions.Add(Expression.Assign(entityParameter, entityMaterializationExpression));
+                    //    accessor = entityParameter;
+                    //    _variableShaperMapping[projectionBindingExpression] = accessor;
+
+                    //    return accessor;
+                    //}
+
                     var nullable = IsNullableProjection(projection);
 
                     var valueParameter = Expression.Parameter(projectionBindingExpression.Type);
                     _variables.Add(valueParameter);
+
+                    //and here
+
 
                     _expressions.Add(
                         Expression.Assign(
@@ -859,6 +1090,38 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
             return base.VisitExtension(extensionExpression);
         }
 
+        public static object? ExtractJsonProperty(JsonElement element, string propertyName, Type returnType)
+        {
+            var jsonElementProperty = element.GetProperty(propertyName);
+
+            if (returnType == typeof(int))
+            {
+                return jsonElementProperty.GetInt32();
+            }
+            if (returnType == typeof(DateTime))
+            {
+                return jsonElementProperty.GetDateTime();
+            }
+            if (returnType == typeof(bool))
+            {
+                return jsonElementProperty.GetBoolean();
+            }
+            if (returnType == typeof(decimal))
+            {
+                return jsonElementProperty.GetDecimal();
+            }
+            if (returnType == typeof(string))
+            {
+                return jsonElementProperty.GetString();
+            }
+            else
+            {
+                throw new InvalidOperationException("unsupported type");
+            }
+        }
+
+        private readonly MethodInfo _extractJsonPropertyMethodInfo = typeof(ShaperProcessingExpressionVisitor).GetMethod(nameof(ExtractJsonProperty))!;
+
         protected override Expression VisitMethodCall(MethodCallExpression methodCallExpression)
         {
             if (methodCallExpression.Method.IsGenericMethod
@@ -867,25 +1130,80 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
             {
                 var property = methodCallExpression.Arguments[2].GetConstantValue<IProperty?>();
                 var mappingParameter = (ParameterExpression)((MethodCallExpression)methodCallExpression.Arguments[0]).Object!;
-                var projectionIndex = property == null
-                    ? _entityTypeIdentifyingExpressionOffsets[mappingParameter]
-                    + methodCallExpression.Arguments[1].GetConstantValue<int>()
-                    : _materializationContextBindings[mappingParameter][property];
-                var projection = _selectExpression.Projection[projectionIndex];
 
-                var nullable = IsNullableProjection(projection);
+                if (property != null
+                    && property.DeclaringEntityType.MappedToJson())
+                {
+                    if (property.IsPrimaryKey())
+                    {
+                        var keyBindings = _materializationContextBindings[mappingParameter];
+                        var keyProjectionIndex = keyBindings[property];
 
-                Check.DebugAssert(
-                    !nullable || property != null || methodCallExpression.Type.IsNullableType(),
-                    "For nullable reads the return type must be null unless property is specified.");
+                        // TODO: do it over index rather than mapping - but make sure it's adequate, especially when we have multiple projections and multiple nested entities etc 
+                        //var index = (int)((ConstantExpression)methodCallExpression.Arguments[1]).Value!;
 
-                return CreateGetValueExpression(
-                    _dataReaderParameter,
-                    projectionIndex,
-                    nullable,
-                    projection.Expression.TypeMapping!,
-                    methodCallExpression.Type,
-                    property);
+
+                        var projection = _selectExpression.Projection[keyProjectionIndex];
+
+                        var nullable = IsNullableProjection(projection);
+
+                        Check.DebugAssert(
+                            !nullable || property != null || methodCallExpression.Type.IsNullableType(),
+                            "For nullable reads the return type must be null unless property is specified.");
+
+                        // maumar - this needs to change to access json elements
+
+                        return CreateGetValueExpression(
+                            _dataReaderParameter,
+                            keyProjectionIndex,
+                            nullable,
+                            projection.Expression.TypeMapping!,
+                            methodCallExpression.Type,
+                            property);
+                    }
+
+
+                    //if (!_materializationContextBindings.ContainsKey(mappingParameter))
+                    //{
+                    // json entity
+                    var jsonElementParameter = _materializationContextToJsonElementVariableMap[mappingParameter];
+
+                    // TODO: check mapping on the property to see the *actual* json property (could be different than the c-space property name)
+
+                    return
+                        Expression.Convert(
+                            Expression.Call(
+                            null,
+                            _extractJsonPropertyMethodInfo,
+                            jsonElementParameter,
+                            Expression.Constant(property.Name),
+                            Expression.Constant(property.ClrType)),
+                        property.ClrType);
+                }
+                else
+                {
+                    var projectionIndex = property == null
+                        ? _entityTypeIdentifyingExpressionOffsets[mappingParameter]
+                        + methodCallExpression.Arguments[1].GetConstantValue<int>()
+                        : _materializationContextBindings[mappingParameter][property];
+                    var projection = _selectExpression.Projection[projectionIndex];
+
+                    var nullable = IsNullableProjection(projection);
+
+                    Check.DebugAssert(
+                        !nullable || property != null || methodCallExpression.Type.IsNullableType(),
+                        "For nullable reads the return type must be null unless property is specified.");
+
+                    // maumar - this needs to change to access json elements
+
+                    return CreateGetValueExpression(
+                        _dataReaderParameter,
+                        projectionIndex,
+                        nullable,
+                        projection.Expression.TypeMapping!,
+                        methodCallExpression.Type,
+                        property);
+                }
             }
 
             return base.VisitMethodCall(methodCallExpression);
@@ -1892,6 +2210,126 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
                 }
 
                 return base.Visit(expression);
+            }
+        }
+
+
+        private sealed class JsonElementInjectingExpressionVisitor : ExpressionVisitor
+        {
+            private readonly MethodInfo _extractJsonElementMethod = typeof(JsonElementInjectingExpressionVisitor).GetMethod(nameof(ExtractJsonElement))!;
+            private readonly ParameterExpression _dataReaderParameter;
+
+            private int entityCount = 0;
+
+            public JsonElementInjectingExpressionVisitor(ParameterExpression dataReaderParameter)
+            {
+                _dataReaderParameter = dataReaderParameter;
+            }
+
+            public static JsonElement ExtractJsonElement(DbDataReader dataReader, int index)
+            {
+                var jsonString = dataReader.GetString(index);
+                var jsonDocument = JsonDocument.Parse(jsonString);
+                var jsonElement = jsonDocument.RootElement;
+
+                return jsonElement;
+            }
+
+            protected override Expression VisitExtension(Expression extensionExpression)
+            {
+                if (extensionExpression is RelationalEntityShaperExpression relationalEntityShaperExpression
+                    && relationalEntityShaperExpression.EntityType.MappedToJson())
+                {
+                    entityCount++;
+
+                    var projectionBinding = (ProjectionBindingExpression)relationalEntityShaperExpression.ValueBufferExpression;
+                    var selectExpression = (SelectExpression)projectionBinding.QueryExpression;
+                    var projectionIndex = selectExpression.GetProjection(projectionBinding).GetConstantValue<int>();
+                    //var projectionMember = projectionBinding.ProjectionMember;
+                    //var selectExpression = (SelectExpression)projectionBinding.QueryExpression;
+
+                    //var jsonStringVariable = Expression.Variable(
+                    //    typeof(JsonDocument),
+                    //    "jsonString" + entityCount);
+
+                    //var jsonDocument = Expression.Variable(
+                    //    typeof(JsonDocument),
+                    //    "jsonDocument" + entityCount);
+
+                    var jsonElement = Expression.Variable(
+                        typeof(JsonElement),
+                        "jsonElement" + entityCount);
+
+                    var variables = new List<ParameterExpression> { jsonElement };
+
+                    var expressions = new List<Expression>
+                    {
+                        Expression.Assign(
+                            jsonElement,
+                            Expression.Call(
+                                null,
+                                _extractJsonElementMethod,
+                                _dataReaderParameter,
+                                Expression.Constant(projectionIndex))),
+
+                            //Expression.TypeAs(
+                            //    projectionBinding,
+                            //    typeof(string))),
+
+                        //Expression.Assign(
+                        //    valueParameter,
+                        //    CreateGetValueExpression(
+                        //        _dataReaderParameter,
+                        //        projectionIndex,
+                        //        nullable,
+                        //        projection.Expression.TypeMapping!,
+                        //        valueParameter.Type)));
+
+
+
+
+                    //Expression.Assign(
+                    //        jsonDocumentVariable,
+                    //        Expression.TypeAs(
+                    //            valueBufferExpression,
+                    //            typeof(JsonDocument))),
+
+                        relationalEntityShaperExpression,
+
+                        //Expression.Condition(
+                        //    Expression.Equal(jsonElement, Expression.Constant(null, jsonElement.Type)),
+                        //    Expression.Constant(null, relationalEntityShaperExpression.Type),
+                        //    relationalEntityShaperExpression)
+                    };
+
+                    return Expression.Block(
+                        relationalEntityShaperExpression.Type,
+                        variables,
+                        expressions);
+
+
+
+
+
+
+                    //var valueParameter = Expression.Parameter(projectionBinding.Type);
+                    //_variables.Add(valueParameter);
+
+                    //and here
+
+
+                    //_expressions.Add(
+                    //    Expression.Assign(
+                    //        valueParameter,
+                    //        CreateGetValueExpression(
+                    //            _dataReaderParameter,
+                    //            projectionIndex,
+                    //            nullable,
+                    //            projection.Expression.TypeMapping!,
+                    //            valueParameter.Type)));
+                }
+
+                return base.VisitExtension(extensionExpression);
             }
         }
     }

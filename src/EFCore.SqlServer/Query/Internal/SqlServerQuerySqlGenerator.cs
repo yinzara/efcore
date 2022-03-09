@@ -170,6 +170,29 @@ public class SqlServerQuerySqlGenerator : QuerySqlGenerator
     }
 
     /// <inheritdoc />
+    protected override Expression VisitJsonEntityExpression(JsonEntityExpression jsonEntityExpression)
+    {
+        Sql.Append("JSON_QUERY(");
+        Visit(jsonEntityExpression.JsonColumn);
+        Sql.Append(",");
+
+        var jsonPath = string.Join(".", jsonEntityExpression.GetPath());
+        if (!string.IsNullOrEmpty(jsonPath))
+        {
+            jsonPath = "$." + jsonPath;
+        }
+        else
+        {
+            jsonPath = "$";
+        }
+
+        Sql.Append("'" + jsonPath + "'");
+        Sql.Append(")");
+
+        return base.VisitJsonEntityExpression(jsonEntityExpression);
+    }
+
+    /// <inheritdoc />
     protected override void CheckComposableSqlTrimmed(ReadOnlySpan<char> sql)
     {
         base.CheckComposableSqlTrimmed(sql);

@@ -938,8 +938,14 @@ public class RelationalSqlTranslatingExpressionVisitor : ExpressionVisitor
                 return null;
             }
 
+            if (valueBufferExpression is JsonEntityExpression jsonEntityExpression)
+            {
+                return jsonEntityExpression.BindProperty(property);
+            }
+
+
             var entityProjectionExpression = (EntityProjectionExpression)valueBufferExpression;
-            var propertyAccess = entityProjectionExpression.BindProperty(property);
+            var propertyAccess = entityProjectionExpression.BindProperty2(property);
 
             var entityType = entityReferenceExpression.EntityType;
             var table = entityType.GetViewOrTableMappings().FirstOrDefault()?.Table;
@@ -962,7 +968,7 @@ public class RelationalSqlTranslatingExpressionVisitor : ExpressionVisitor
                 entityType.GetProperties().Where(p => !p.IsNullable && !p.IsPrimaryKey()).ToList();
             if (allRequiredNonPkPropertiesCondition.Count > 0)
             {
-                condition = allRequiredNonPkPropertiesCondition.Select(p => entityProjectionExpression.BindProperty(p))
+                condition = allRequiredNonPkPropertiesCondition.Select(p => entityProjectionExpression.BindProperty2(p))
                     .Select(c => (SqlExpression)_sqlExpressionFactory.NotEqual(c, _sqlExpressionFactory.Constant(null)))
                     .Aggregate((a, b) => _sqlExpressionFactory.AndAlso(a, b));
             }
@@ -972,7 +978,7 @@ public class RelationalSqlTranslatingExpressionVisitor : ExpressionVisitor
             {
                 // If all non principal shared properties are nullable then we need additional condition
                 var atLeastOneNonNullValueInNullableColumnsCondition = nonPrincipalSharedNonPkProperties
-                    .Select(p => entityProjectionExpression.BindProperty(p))
+                    .Select(p => entityProjectionExpression.BindProperty2(p))
                     .Select(c => (SqlExpression)_sqlExpressionFactory.NotEqual(c, _sqlExpressionFactory.Constant(null)))
                     .Aggregate((a, b) => _sqlExpressionFactory.OrElse(a, b));
 
@@ -1002,7 +1008,7 @@ public class RelationalSqlTranslatingExpressionVisitor : ExpressionVisitor
 
             var projectionBindingExpression = (ProjectionBindingExpression)entityShaper.ValueBufferExpression;
             var entityProjectionExpression = (EntityProjectionExpression)subSelectExpression.GetProjection(projectionBindingExpression);
-            var innerProjection = entityProjectionExpression.BindProperty(property);
+            var innerProjection = entityProjectionExpression.BindProperty2(property);
             subSelectExpression.ReplaceProjection(new List<Expression> { innerProjection });
             subSelectExpression.ApplyProjection();
 
