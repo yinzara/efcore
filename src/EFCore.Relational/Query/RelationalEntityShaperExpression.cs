@@ -1,6 +1,7 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace Microsoft.EntityFrameworkCore.Query;
@@ -89,7 +90,8 @@ public class RelationalEntityShaperExpression : EntityShaperExpression
         if (containsDiscriminatorProperty
             || entityType.FindPrimaryKey() == null
             || entityType.GetRootType() != entityType
-            || entityType.GetMappingStrategy() == RelationalAnnotationNames.TpcMappingStrategy)
+            || entityType.GetMappingStrategy() == RelationalAnnotationNames.TpcMappingStrategy
+            || entityType.MappedToJson())
         {
             return baseCondition;
         }
@@ -100,6 +102,7 @@ public class RelationalEntityShaperExpression : EntityShaperExpression
         {
             // Optional dependent
             var valueBufferParameter = baseCondition.Parameters[0];
+
             var condition = entityType.GetNonPrincipalSharedNonPkProperties(table)
                 .Where(e => !e.IsNullable)
                 .Select(

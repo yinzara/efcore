@@ -1251,4 +1251,14 @@ public class QuerySqlGenerator : SqlExpressionVisitor
 
         return unionExpression;
     }
+
+    /// <inheritdoc />
+    protected override Expression VisitJsonPathExpression(JsonPathExpression jsonPathExpression)
+    {
+        _relationalCommandBuilder.Append("JSON(");
+        Visit(jsonPathExpression.JsonColumn);
+        Sql.Append($", {string.Join(".", jsonPathExpression.JsonPath)})");
+
+        return jsonPathExpression;
+    }
 }

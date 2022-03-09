@@ -5,6 +5,7 @@ using System.Collections;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Update.Internal;
 
 namespace Microsoft.EntityFrameworkCore.Migrations.Internal;
@@ -686,6 +687,7 @@ public class MigrationsModelDiffer : IMigrationsModelDiffer
     {
         var columns = table.Columns.ToHashSet();
         var sortedColumns = new List<IColumn>(columns.Count);
+
         foreach (var property in GetSortedProperties(GetMainType(table).GetRootType(), table))
         {
             var column = table.FindColumn(property)!;
@@ -694,6 +696,11 @@ public class MigrationsModelDiffer : IMigrationsModelDiffer
                 sortedColumns.Add(column);
             }
         }
+
+        //// TODO: how to do this properly?
+        //Check.DebugAssert(
+        //    columns.Count(x => x.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value != null) == 0,
+        //    "columns is not empty");
 
         Check.DebugAssert(columns.Count == 0, "columns is not empty");
 
@@ -1061,6 +1068,47 @@ public class MigrationsModelDiffer : IMigrationsModelDiffer
         Initialize(
             operation, target, targetTypeMapping, target.IsNullable,
             target.GetAnnotations(), inline);
+
+        //// maumar: DRY this! also identify json column properly (with annotation or something)
+        //if (target.PropertyMappings.Count() == 0)
+        //{
+        //    var targetTypeMapping = TypeMappingSource.GetMapping(target.StoreType);
+
+        //    operation.ClrType = targetTypeMapping.ClrType.UnwrapNullableType();
+
+        //    if (!target.TryGetDefaultValue(out var defaultValue))
+        //    {
+        //        defaultValue = null;
+        //    }
+
+        //    operation.ColumnType = target.StoreType;
+        //    operation.MaxLength = null;// target.MaxLength;
+        //    operation.Precision = null;// target.Precision;
+        //    operation.Scale = null;//target.Scale;
+        //    operation.IsUnicode = null;// target.IsUnicode;
+        //    operation.IsFixedLength = null;// target.IsFixedLength;
+        //    operation.IsRowVersion = false;// target.IsRowVersion;
+        //    operation.IsNullable = target.IsNullable;
+        //    operation.DefaultValue = defaultValue
+        //        ?? (inline || target.IsNullable
+        //            ? null
+        //            : GetDefaultValue(operation.ClrType));
+        //    operation.DefaultValueSql = null;// target.DefaultValueSql;
+        //    operation.ComputedColumnSql = null;// target.ComputedColumnSql;
+        //    operation.IsStored = null;// target.IsStored;
+        //    operation.Comment = null;// target.Comment;
+        //    operation.Collation = null;// target.Collation;
+        //    operation.AddAnnotations(target.GetAnnotations());
+        //}
+        //else
+        //{
+        //    var targetMapping = target.PropertyMappings.First();
+        //    var targetTypeMapping = targetMapping.TypeMapping;
+
+        //    Initialize(
+        //        operation, target, targetTypeMapping, target.IsNullable,
+        //        target.GetAnnotations(), inline);
+        //}
 
         if (!inline && target.Order.HasValue)
         {

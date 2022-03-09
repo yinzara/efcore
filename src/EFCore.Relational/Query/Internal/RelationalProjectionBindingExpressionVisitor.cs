@@ -138,14 +138,50 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
                         throw new InvalidOperationException(CoreStrings.TranslationFailed(projectionBindingExpression.Print()));
 
                     case MaterializeCollectionNavigationExpression materializeCollectionNavigationExpression:
+                        if (materializeCollectionNavigationExpression.Navigation.TargetEntityType.MappedToJson()
+                            && materializeCollectionNavigationExpression.Subquery is MethodCallExpression methodCallSubquery
+                            && methodCallSubquery.Method.IsGenericMethod)
+                        {
+                            // strip .Select(x => x) and .AsQueryable() from the JsonCollectionResultExpression
+                            if (methodCallSubquery.Method.GetGenericMethodDefinition() == QueryableMethods.Select
+                                && methodCallSubquery.Arguments[0] is MethodCallExpression selectSourceMethod
+                                && selectSourceMethod.Method.IsGenericMethod
+                                && methodCallSubquery.Arguments[1].UnwrapLambdaFromQuote() is LambdaExpression selectLambda
+                                // if this MCNE is part of json include chain, there could me more json includes below - we need to prune them
+                                // to get to the root parameter 
+                                && RemoveJsonIncludes(selectLambda.Body) == selectLambda.Parameters[0])
+                            {
+                                methodCallSubquery = selectSourceMethod;
+                            }
+
+                            if (methodCallSubquery.Method.IsGenericMethod
+                                && methodCallSubquery.Method.GetGenericMethodDefinition() == QueryableMethods.AsQueryable
+                                && methodCallSubquery.Arguments[0] is JsonCollectionResultExpression jcre)
+                            {
+                                return Visit(jcre);
+                            }
+
+                            throw new InvalidOperationException(CoreStrings.TranslationFailed(materializeCollectionNavigationExpression.Print()));
+                        }
+
                         _clientProjections!.Add(
                             _queryableMethodTranslatingExpressionVisitor.TranslateSubquery(
                                 materializeCollectionNavigationExpression.Subquery)!);
+
                         return new CollectionResultExpression(
                             // expression.Type will be CLR type of the navigation here so that is fine.
                             new ProjectionBindingExpression(_selectExpression, _clientProjections.Count - 1, expression.Type),
                             materializeCollectionNavigationExpression.Navigation,
                             materializeCollectionNavigationExpression.Navigation.ClrType.GetSequenceType());
+
+                    case JsonCollectionResultExpression jsonCollectionResultExpression:
+
+                        _clientProjections!.Add(jsonCollectionResultExpression.JsonProjectionExpression);
+
+                        return new CollectionResultExpression(
+                            new ProjectionBindingExpression(_selectExpression, _clientProjections!.Count - 1, jsonCollectionResultExpression.Navigation.ClrType),
+                            jsonCollectionResultExpression.Navigation,
+                            jsonCollectionResultExpression.Navigation.ClrType.GetSequenceType());
                 }
 
                 var translation = _sqlTranslator.Translate(expression);
@@ -214,6 +250,12 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
         }
 
         return base.Visit(expression);
+
+        static Expression RemoveJsonIncludes(Expression expression)
+            => expression is IncludeExpression includeExpression
+                && includeExpression.Navigation.DeclaringEntityType.MappedToJson()
+                ? RemoveJsonIncludes(includeExpression.EntityExpression)
+                : expression;
     }
 
     /// <summary>
@@ -267,6 +309,21 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
             {
                 // TODO: Make this easier to understand some day.
                 EntityProjectionExpression entityProjectionExpression;
+
+                if (entityShaperExpression.ValueBufferExpression is JsonProjectionExpression jsonProjectionExpression)
+                {
+                    if (_indexBasedBinding)
+                    {
+                        var projectionBinding = AddClientProjection(jsonProjectionExpression, typeof(ValueBuffer));
+
+                        return entityShaperExpression.Update(projectionBinding);
+                    }
+                    else
+                    {
+                        return QueryCompilationContext.NotTranslatedExpression;
+                    }
+                }
+
                 if (entityShaperExpression.ValueBufferExpression is ProjectionBindingExpression projectionBindingExpression)
                 {
                     if (projectionBindingExpression.ProjectionMember == null
@@ -303,8 +360,19 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
                     new ProjectionBindingExpression(_selectExpression, _projectionMembers.Peek(), typeof(ValueBuffer)));
             }
 
-            case IncludeExpression:
-                return _indexBasedBinding ? base.VisitExtension(extensionExpression) : QueryCompilationContext.NotTranslatedExpression;
+            case IncludeExpression includeExpression:
+            {
+                if (_indexBasedBinding)
+                {
+                    // we prune nested json includes - we only need the first level of include so that we know the json column
+                    // and the json entity that is the start of the include chain - the rest will be added in the shaper phase
+                    return includeExpression.Navigation.DeclaringEntityType.MappedToJson()
+                        ? Visit(includeExpression.EntityExpression)
+                        : base.VisitExtension(extensionExpression);
+                }
+
+                return QueryCompilationContext.NotTranslatedExpression;
+            }
 
             case CollectionResultExpression collectionResultExpression:
             {

@@ -113,7 +113,11 @@ public static class RelationalPropertyExtensions
             return (string?)columnAnnotation.Value;
         }
 
-        return GetDefaultColumnName(property, storeObject);
+        var result = GetDefaultColumnName(property, storeObject);
+
+        return result == string.Empty
+            ? null
+            : result;
     }
 
     /// <summary>
@@ -130,7 +134,7 @@ public static class RelationalPropertyExtensions
     /// <param name="property">The property.</param>
     /// <param name="storeObject">The identifier of the table-like store object containing the column.</param>
     /// <returns>The default column name to which the property would be mapped.</returns>
-    public static string GetDefaultColumnName(this IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
+    public static string? GetDefaultColumnName(this IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
     {
         var sharedTablePrincipalPrimaryKeyProperty = FindSharedObjectRootPrimaryKeyProperty(property, storeObject);
         if (sharedTablePrincipalPrimaryKeyProperty != null)
@@ -142,6 +146,14 @@ public static class RelationalPropertyExtensions
         if (sharedTablePrincipalConcurrencyProperty != null)
         {
             return sharedTablePrincipalConcurrencyProperty.GetColumnName(storeObject)!;
+        }
+
+        if (property.DeclaringEntityType.MappedToJson())
+        {
+            // only PKs that are unhandled at this point should be ordinal keys - not mapped to anything
+            return property.IsPrimaryKey()
+                ? null
+                : property.GetDefaultColumnBaseName();
         }
 
         var entityType = property.DeclaringEntityType;
@@ -1320,6 +1332,12 @@ public static class RelationalPropertyExtensions
 
     private static IReadOnlyProperty? FindSharedObjectRootProperty(IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
     {
+        if (property.DeclaringEntityType.MappedToJson())
+        {
+            //JSON-splitting is not supported
+            return property;
+        }
+
         var column = property.GetColumnName(storeObject);
         if (column == null)
         {
@@ -1379,7 +1397,21 @@ public static class RelationalPropertyExtensions
                 break;
             }
 
-            principalProperty = linkingRelationship.PrincipalKey.Properties[linkingRelationship.Properties.IndexOf(principalProperty)];
+            if (property.DeclaringEntityType.MappedToJson())
+            {
+                // for json collection entities don't match the ordinal key
+                var index = linkingRelationship.Properties.IndexOf(principalProperty);
+                if (index == -1)
+                {
+                    return null;
+                }
+
+                principalProperty = linkingRelationship.PrincipalKey.Properties[index];
+            }
+            else
+            {
+                principalProperty = linkingRelationship.PrincipalKey.Properties[linkingRelationship.Properties.IndexOf(principalProperty)];
+            }
         }
 
         return principalProperty == property ? null : principalProperty;

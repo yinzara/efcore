@@ -205,6 +205,12 @@ public class SharedTableConvention : IModelFinalizingConvention
                 continue;
             }
 
+            // don't uniquify json columns
+            if (entityType.MappedToJson())
+            {
+                continue;
+            }
+
             if (!properties.TryGetValue(columnName, out var otherProperty))
             {
                 properties[columnName] = property;

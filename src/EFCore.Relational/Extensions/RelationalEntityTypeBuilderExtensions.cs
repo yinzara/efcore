@@ -1903,4 +1903,36 @@ public static class RelationalEntityTypeBuilderExtensions
             tableName,
             tableSchema,
             fromDataAnnotation ? ConfigurationSource.DataAnnotation : ConfigurationSource.Convention);
+
+    /// <summary>
+    /// TODO
+    /// </summary>
+    public static EntityTypeBuilder<TEntity> MapReferenceToJson<TEntity, TRelatedEntity>(
+        this EntityTypeBuilder<TEntity> entityTypeBuilder,
+        Expression<Func<TEntity, TRelatedEntity?>> navigationExpression,
+        string jsonColumnName)
+        where TEntity : class
+        where TRelatedEntity : class
+    {
+        var ownedNavigationBuilder = entityTypeBuilder.OwnsOne(navigationExpression);
+        ownedNavigationBuilder.OwnedEntityType.SetAnnotation(RelationalAnnotationNames.MapToJsonColumnName, jsonColumnName);
+
+        return entityTypeBuilder;
+    }
+
+    /// <summary>
+    /// TODO
+    /// </summary>
+    public static EntityTypeBuilder<TEntity> MapCollectionToJson<TEntity, TRelatedEntity>(
+        this EntityTypeBuilder<TEntity> entityTypeBuilder,
+        Expression<Func<TEntity, IEnumerable<TRelatedEntity>?>> navigationExpression,
+        string jsonColumnName)
+        where TEntity : class
+        where TRelatedEntity : class
+    {
+        var ownedNavigationBuilder = entityTypeBuilder.OwnsMany(navigationExpression);
+        ownedNavigationBuilder.OwnedEntityType.SetAnnotation(RelationalAnnotationNames.MapToJsonColumnName, jsonColumnName);
+
+        return entityTypeBuilder;
+    }
 }

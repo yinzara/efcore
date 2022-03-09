@@ -310,6 +310,12 @@ public class RelationalModelValidator : ModelValidator
                     continue;
                 }
 
+                // no need to check json-mapped types (or is there, just different?)
+                if (entityType.MappedToJson())
+                {
+                    continue;
+                }
+
                 var (principalEntityTypes, optional) = GetPrincipalEntityTypes(entityType);
                 if (!optional)
                 {
@@ -401,11 +407,19 @@ public class RelationalModelValidator : ModelValidator
         }
 
         var storeObject = StoreObjectIdentifier.Table(tableName, schema);
-        var unvalidatedTypes = new HashSet<IEntityType>(mappedTypes);
+        // TODO: add proper validation for json-mapped types instead of filtering them out
+        var unvalidatedTypes = new HashSet<IEntityType>(mappedTypes.Where(x => !x.MappedToJson()));
         IEntityType? root = null;
         foreach (var mappedType in mappedTypes)
         {
             if (mappedType.BaseType != null && unvalidatedTypes.Contains(mappedType.BaseType))
+            {
+                continue;
+            }
+
+            // HACK (do it properly, i.e. add some validation to this scenario, not everything should be allowed presumably)
+            // owned types mapped to json can share table with parent even in 1-many scenario
+            if (mappedType.MappedToJsonColumnName() != null)
             {
                 continue;
             }
@@ -710,9 +724,20 @@ public class RelationalModelValidator : ModelValidator
                 }
             }
 
+            // TODO: add validation for json columns (JsonColumn has mappings for individual properties for the entire owned structure)
+            if (entityType.MappedToJson())
+            {
+                continue;
+            }
+
             foreach (var property in entityType.GetDeclaredProperties())
             {
                 var columnName = property.GetColumnName(storeObject)!;
+                if (columnName == null)
+                {
+                    continue;
+                }
+
                 missingConcurrencyTokens?.Remove(columnName);
                 if (!propertyMappings.TryGetValue(columnName, out var duplicateProperty))
                 {
