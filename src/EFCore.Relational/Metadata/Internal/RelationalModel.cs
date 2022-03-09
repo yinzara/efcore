@@ -371,9 +371,58 @@ public class RelationalModel : Annotatable, IRelationalModel
             {
                 IsSplitEntityTypePrincipal = true
             };
+
+            // TODO: convert to runtime annotation
+            var mapToJsonColumnName = entityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string;
+            //var mapToJsonColumnName = entityType.FindRuntimeAnnotationValue(RelationalAnnotationNames.MapToJsonColumnName) as string;
+            if (!string.IsNullOrEmpty(mapToJsonColumnName))
+            {
+                var jsonColumn = (Column?)table.FindColumn(mapToJsonColumnName);
+                if (jsonColumn == null)
+                {
+                    // TODO: how to get the mapping for this column properly?
+                    jsonColumn = new Column(mapToJsonColumnName, "nvarchar(max)", table);
+                    jsonColumn.IsNullable = true;
+                    table.Columns.Add(mapToJsonColumnName, jsonColumn);
+                }
+
+                //// TODO: is this correct? should all properties be mapped to the json column?
+                //// shadow properties (keys, foreign keys) shouldn't be persisted
+                //// since we need to allow users to create models reflecting their existing json model
+                //// can we filter out all shadow props or need to look for PK/FK specifically?
+                //// are there any others shadows props that we add?
+
+                //// or should we add mapping here for every property (map to the json column)
+                //// but ignore/filter it later?
+                //foreach (var property in entityType.GetProperties().Where(p => !p.IsShadowProperty()))
+                //{
+                //    var jsonColumnMapping = new ColumnMapping(property, jsonColumn, tableMapping);
+                //    tableMapping.ColumnMappings.Add(jsonColumnMapping);
+                //    jsonColumn.PropertyMappings.Add(jsonColumnMapping);
+                //}
+
+                //tableMappings.Add(tableMapping);
+                //table.EntityTypeMappings.Add(tableMapping);
+
+                //break;
+            }
+
             foreach (var property in mappedType.GetProperties())
             {
-                var columnName = property.GetColumnName(mappedTable);
+                string? columnName;
+                if (!string.IsNullOrEmpty(mapToJsonColumnName)
+                    && !property.IsKey()
+                    && !property.IsForeignKey())
+                {
+                    // all non-key properties in entity which is mapped to json should be mapped to that json column
+                    columnName = mapToJsonColumnName;
+                }
+                else
+                {
+                    columnName = property.GetColumnName(mappedTable);
+                }
+
+                //var columnName = property.GetColumnName(mappedTable);
                 if (columnName == null)
                 {
                     continue;
@@ -1066,6 +1115,14 @@ public class RelationalModel : Annotatable, IRelationalModel
             SortedSet<IForeignKey>? rowInternalForeignKeys = null;
             foreach (var foreignKey in entityType.FindForeignKeys(primaryKey.Properties))
             {
+                if (foreignKey.IsOwnership
+                    && !string.IsNullOrEmpty(foreignKey.PrincipalEntityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string))
+                {
+                    // skip the FKs that are between owned types mapped to json column
+                    // TODO: is this correct way? - what about FKs between normal entity and owned entity mapped to json?
+                    continue;
+                }
+
                 if (foreignKey.IsUnique
                     && foreignKey.PrincipalKey.IsPrimaryKey()
                     && !foreignKey.DeclaringEntityType.IsAssignableFrom(foreignKey.PrincipalEntityType)

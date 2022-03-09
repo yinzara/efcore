@@ -1142,6 +1142,11 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
             var innerShaper = entityProjectionExpression.BindNavigation(navigation);
             if (innerShaper == null)
             {
+                var foo = navigation.DeclaringEntityType;
+                var bar = navigation.DeclaringEntityType.GetViewOrTableMappings();
+
+
+
                 // Owned types don't support inheritance See https://github.com/dotnet/efcore/issues/9630
                 // So there is no handling for dependent having TPT
                 // If navigation is defined on derived type and entity type is part of TPT then we need to get ITableBase for derived type.

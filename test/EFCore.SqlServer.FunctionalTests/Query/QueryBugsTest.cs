@@ -6,6 +6,8 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
 using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore.Diagnostics.Internal;
 using Microsoft.EntityFrameworkCore.Query.Internal;
@@ -10343,6 +10345,129 @@ WHERE [e].[TimeSpan] = @__parameter_0");
     }
 
     #endregion
+
+
+    [ConditionalFact]
+    public void Sikson()
+    {
+        using (var ctx = new MyContext())
+        {
+            ctx.Database.EnsureDeleted();
+            ctx.Database.EnsureCreated();
+
+            var od11 = new MyOwnedOrderDetail { Discount = 1.1M, ShipDate = new DateTime(2011, 1, 1) };
+            var od12 = new MyOwnedOrderDetail { Discount = 1.2M, ShipDate = new DateTime(2012, 1, 1) };
+            var od13 = new MyOwnedOrderDetail { Discount = 1.3M, ShipDate = new DateTime(2013, 1, 1) };
+
+            var od21 = new MyOwnedOrderDetail { Discount = 2.1M, ShipDate = new DateTime(2021, 1, 1) };
+            var od22 = new MyOwnedOrderDetail { Discount = 2.2M, ShipDate = new DateTime(2022, 1, 1) };
+
+            var o1 = new MyOwnedOrder { Details = new List<MyOwnedOrderDetail> { od11, od12, od13 }, OrderName = "1", Quantity = 1 };
+            var o2 = new MyOwnedOrder { Details = new List<MyOwnedOrderDetail> { od21, od22, }, OrderName = "2", Quantity = 2 };
+
+            var c1 = new MyCustomer { Id = 1, FirstName = "customer1", LastName = "one", Order = o1 };
+            var c2 = new MyCustomer { Id = 2, FirstName = "customer2", LastName = "two", Order = o2 };
+
+            ctx.MyCustomers.AddRange(c1, c2);
+            ctx.SaveChanges();
+        }
+
+        using (var ctx = new MyContext())
+        {
+            //var query = ctx.Entities.ToList();
+
+            var query = ctx.MyCustomers.ToList();
+        }
+    }
+
+    public class MyContext : DbContext
+    {
+        //public DbSet<Entity> Entities { get; set; }
+        public DbSet<MyCustomer> MyCustomers { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            //modelBuilder.Entity<SomeOtherEntity>().ToTable("SomeOtherTable");
+            //modelBuilder.Entity<Entity>().ToTable("EntityTable");
+
+            //modelBuilder.Entity<Entity>().OwnsOne(x => x.Reference, b =>
+            //{
+            //    b.WithOwner(x => x.Owner);
+            //    b.OwnsOne(x => x.Nested).WithOwner(x => x.Parent);
+            //});
+
+            //modelBuilder.Entity<Entity>().MapToJson(x => x.Reference, "json_reference");
+
+            var options = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = true,
+                AllowTrailingCommas = true,
+                PropertyNameCaseInsensitive = true
+            };
+
+            modelBuilder.Entity<MyCustomer>().Property(x => x.Id).ValueGeneratedNever();
+            modelBuilder.Entity<MyCustomer>().Property(x => x.Order).HasConversion(
+                x => JsonSerializer.Serialize(x, options),
+                x => JsonSerializer.Deserialize<MyOwnedOrder>(x, options));
+
+            //modelBuilder.Entity<MyCustomer>().OwnsOne(x => x.Order, b => b.OwnsMany(x => x.Details));
+        }
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            optionsBuilder.UseSqlServer(@"Server=(localdb)\mssqllocaldb;Database=JsonSandbox;Trusted_Connection=True;MultipleActiveResultSets=true");
+        }
+    }
+
+    //public class Entity
+    //{
+    //    public int Id { get; set; }
+    //    public string Name { get; set; }
+    //    public OwnedReference Reference { get; set; }
+    //}
+
+    //public class SomeOtherEntity
+    //{
+    //    public int Id { get; set; }
+    //}
+
+    //public class OwnedReference
+    //{
+    //    public string FullName { get; set; }
+    //    public decimal Discount { get; set; }
+    //    public Entity Owner { get; set; }
+    //    public NestedReference Nested { get; set; }
+
+    //    //public SomeOtherEntity Entity { get; set; }
+    //}
+
+    //public class NestedReference
+    //{
+    //    public string SomeProp { get; set; }
+    //    public OwnedReference Parent { get; set; }
+    //}
+
+    public class MyCustomer
+    {
+        public int Id { get; set; }
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public MyOwnedOrder Order { get; set; }
+    }
+
+    public class MyOwnedOrder
+    {
+        public int Quantity { get; set; }
+        public string OrderName { get; set; }
+        public List<MyOwnedOrderDetail> Details { get; set; }
+    }
+
+    public class MyOwnedOrderDetail
+    {
+        public decimal Discount { get; set; }
+        public DateTime ShipDate { get; set; }
+    }
 
     protected override string StoreName
         => "QueryBugsTest";

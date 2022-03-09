@@ -536,6 +536,20 @@ public abstract class OwnedQueryTestBase<TFixture> : QueryTestBase<TFixture>
 
     [ConditionalTheory]
     [MemberData(nameof(IsAsyncData))]
+    public virtual Task Qpson(bool async)
+        => AssertQuery(
+            async,
+            ss => ss.Set<OwnedPerson>().Select(c => c.PersonAddress.Country.Name));
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public virtual Task Qpson2(bool async)
+        => AssertQuery(
+            async,
+            ss => ss.Set<OwnedPerson>().Select(c => c.Orders));
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
     public virtual Task Can_OrderBy_indexer_properties(bool async)
         => AssertQuery(
             async,
@@ -1180,6 +1194,36 @@ public abstract class OwnedQueryTestBase<TFixture> : QueryTestBase<TFixture>
                                 });
                         });
 
+                    //eb.OwnsMany(
+                    //    p => p.OwnedDetails, db =>
+                    //    {
+                    //        db.HasData(
+                    //            new
+                    //            {
+                    //                OwnedPersonId = 1,
+                    //                Id = 1,
+                    //                Detail = "11",
+                    //            },
+                    //            new
+                    //            {
+                    //                OwnedPersonId = 1,
+                    //                Id = 2,
+                    //                Detail = "12",
+                    //            },
+                    //            new
+                    //            {
+                    //                OwnedPersonId = 1,
+                    //                Id = 3,
+                    //                Detail = "13",
+                    //            },
+                    //            new
+                    //            {
+                    //                OwnedPersonId = 1,
+                    //                Id = 4,
+                    //                Detail = "14",
+                    //            });
+                    //    });
+
                     eb.OwnsMany(
                         p => p.Orders, ob =>
                         {
@@ -1223,30 +1267,30 @@ public abstract class OwnedQueryTestBase<TFixture> : QueryTestBase<TFixture>
                                     odb.HasData(
                                         new
                                         {
-                                            Id = -100,
-                                            OrderId = -10,
-                                            OrderClientId = 1,
+                                            //Id = -100,
+                                            //OrderId = -10,
+                                            //OrderClientId = 1,
                                             Detail = "Discounted Order"
                                         },
                                         new
                                         {
-                                            Id = -101,
-                                            OrderId = -10,
-                                            OrderClientId = 1,
+                                            //Id = -101,
+                                            //OrderId = -10,
+                                            //OrderClientId = 1,
                                             Detail = "Full Price Order"
                                         },
                                         new
                                         {
-                                            Id = -200,
-                                            OrderId = -20,
-                                            OrderClientId = 2,
+                                            //Id = -200,
+                                            //OrderId = -20,
+                                            //OrderClientId = 2,
                                             Detail = "Internal Order"
                                         },
                                         new
                                         {
-                                            Id = -300,
-                                            OrderId = -30,
-                                            OrderClientId = 3,
+                                            //Id = -300,
+                                            //OrderId = -30,
+                                            //OrderClientId = 3,
                                             Detail = "Bulk Order"
                                         });
                                 });
@@ -1621,6 +1665,20 @@ public abstract class OwnedQueryTestBase<TFixture> : QueryTestBase<TFixture>
             order5.Details = new List<OrderDetail>();
             ownedPerson4.Orders = new List<Order> { order5 };
 
+            //var ownedDetail11 = new OrderDetail { Detail = "D11" };
+            //var ownedDetail12 = new OrderDetail { Detail = "D12" };
+            //var ownedDetail13 = new OrderDetail { Detail = "D13" };
+            //var ownedDetail14 = new OrderDetail { Detail = "D14" };
+            //var ownedDetail21 = new OrderDetail { Detail = "D21" };
+            //var ownedDetail22 = new OrderDetail { Detail = "D22" };
+            //var ownedDetail41 = new OrderDetail { Detail = "D41" };
+            //var ownedDetail42 = new OrderDetail { Detail = "D42" };
+            //var ownedDetail43 = new OrderDetail { Detail = "D43" };
+
+            //ownedPerson1.OwnedDetails = new List<OrderDetail> { ownedDetail11, ownedDetail12, ownedDetail13, ownedDetail14 };
+            //ownedPerson2.OwnedDetails = new List<OrderDetail> { ownedDetail21, ownedDetail22,  };
+            //ownedPerson4.OwnedDetails = new List<OrderDetail> { ownedDetail41, ownedDetail42, ownedDetail43, };
+
             return new List<OwnedPerson>
             {
                 ownedPerson1,
@@ -1780,6 +1838,8 @@ public abstract class OwnedQueryTestBase<TFixture> : QueryTestBase<TFixture>
             => 10;
 
         public ICollection<Order> Orders { get; set; }
+
+        //public List<OrderDetail> OwnedDetails { get; set; }
     }
 
     protected class Order
