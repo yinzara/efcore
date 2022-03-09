@@ -116,6 +116,12 @@ public class TableBase : Annotatable, ITableBase
     /// <inheritdoc />
     public virtual bool IsOptional(IEntityType entityType)
     {
+        // maumar hack
+        if (entityType.MappedToJson())
+        {
+            //return false;
+        }
+
         if (OptionalEntityTypes == null)
         {
             CheckMappedEntityType(entityType);

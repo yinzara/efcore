@@ -151,6 +151,10 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                     new QueryExpressionReplacingExpressionVisitor(shapedQueryExpression.QueryExpression, clonedSelectExpression)
                         .Visit(shapedQueryExpression.ShaperExpression));
 
+            case JsonCollectionResultExpression jsonCollectionResultExpression:
+                // TODO: need anything here?
+                return jsonCollectionResultExpression;
+
             default:
                 return base.VisitExtension(extensionExpression);
         }
@@ -1031,12 +1035,27 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
             return base.VisitMethodCall(methodCallExpression);
         }
 
+
         protected override Expression VisitExtension(Expression extensionExpression)
-            => extensionExpression is EntityShaperExpression
-                || extensionExpression is ShapedQueryExpression
-                || extensionExpression is GroupByShaperExpression
-                    ? extensionExpression
-                    : base.VisitExtension(extensionExpression);
+        {
+            if (extensionExpression is EntityShaperExpression or ShapedQueryExpression or GroupByShaperExpression)
+            {
+                return extensionExpression;
+            }
+
+            // TODO: fix this - look at both sides of navigation etc for the declaring entity
+            if (extensionExpression is IncludeExpression includeExpression
+                && includeExpression.Navigation.DeclaringEntityType.MappedToJson())
+            {
+                // we prune nested json includes - we only need the first level of include so that we know the json column
+                // and the json entity that is the start of the include chain - the rest will be added in the shaper phase
+                var entityExpression = Visit(includeExpression.EntityExpression);
+
+                return entityExpression;
+            }
+
+            return base.VisitExtension(extensionExpression);
+        }
 
         private Expression? TryExpand(Expression? source, MemberIdentity member)
         {
@@ -1080,10 +1099,70 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                 return null;
             }
 
+            if (entityShaperExpression.ValueBufferExpression is JsonProjectionExpression jsonProjection)
+            {
+                // accessing json entity in the query rather than from auto-include expansion
+                var newJsonProjection = jsonProjection.BuildJsonProjectionExpressionForNavigation(navigation);
+                if (navigation.IsCollection)
+                {
+                    return new JsonCollectionResultExpression(newJsonProjection, navigation, targetEntityType.ClrType);
+                }
+                else
+                {
+                    var newShaper = new RelationalEntityShaperExpression(targetEntityType, newJsonProjection, nullable: true);
+
+                    return newShaper;
+
+                    //// ???
+                    //return doee is not null
+                    //    ? doee.AddNavigation(targetEntityType, navigation)
+                    //    : new DeferredOwnedExpansionExpression(
+                    //        targetEntityType,
+                    //        (ProjectionBindingExpression)newShaper.ValueBufferExpression,
+                    //        navigation);
+                }
+            }
+
             var entityProjectionExpression = GetEntityProjectionExpression(entityShaperExpression);
+
             var foreignKey = navigation.ForeignKey;
             if (navigation.IsCollection)
             {
+                if (targetEntityType.MappedToJson())
+                {
+                    // Owned types don't support inheritance See https://github.com/dotnet/efcore/issues/9630
+                    // So there is no handling for dependent having TPT
+                    // If navigation is defined on derived type and entity type is part of TPT then we need to get ITableBase for derived type.
+                    // TODO: The following code should also handle Function and SqlQuery mappings
+                    var table = navigation.DeclaringEntityType.BaseType == null
+                        || entityType.FindDiscriminatorProperty() != null
+                            ? navigation.DeclaringEntityType.GetViewOrTableMappings().Single().Table
+                            : navigation.DeclaringEntityType.GetViewOrTableMappings().Select(tm => tm.Table)
+                                .Except(navigation.DeclaringEntityType.BaseType.GetViewOrTableMappings().Select(tm => tm.Table))
+                                .Single();
+
+                    // Mapped to same table
+                    // We get identifying column to figure out tableExpression to pull columns from and nullability of most principal side
+                    var identifyingColumn = entityProjectionExpression.BindKeyProperty(entityType.FindPrimaryKey()!.Properties.First());
+                    var principalNullable = identifyingColumn.IsNullable;
+
+                    var jsonColumnName = targetEntityType.GetAnnotation(RelationalAnnotationNames.MapToJsonColumnName).Value as string;
+                    var jsonColumnTypeMapping = targetEntityType.FindRuntimeAnnotationValue(RelationalAnnotationNames.MapToJsonTypeMapping) as RelationalTypeMapping;
+
+                    var jsonColumn = table.Columns.Single(x => x.Name == jsonColumnName);
+
+                    var jsonProjectionExpression = _selectExpression.GenerateJsonProjectionExpression(
+                        targetEntityType,
+                        jsonColumnName!,
+                        jsonColumnTypeMapping!,
+                        table,
+                        identifyingColumn.Table,
+                        principalNullable,
+                        isCollection: true);
+
+                    return new JsonCollectionResultExpression(jsonProjectionExpression, navigation, targetEntityType.ClrType);
+                }
+
                 var innerSelectExpression = BuildInnerSelectExpressionForOwnedTypeMappedToDifferentTable(
                     entityProjectionExpression,
                     targetEntityType.GetViewOrTableMappings().Single().Table,
@@ -1155,7 +1234,7 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                 {
                     // Mapped to same table
                     // We get identifying column to figure out tableExpression to pull columns from and nullability of most principal side
-                    var identifyingColumn = entityProjectionExpression.BindProperty(entityType.FindPrimaryKey()!.Properties.First());
+                    var identifyingColumn = entityProjectionExpression.BindKeyProperty(entityType.FindPrimaryKey()!.Properties.First());
                     var principalNullable = identifyingColumn.IsNullable
                         // Also make nullable if navigation is on derived type and and principal is TPT
                         // Since identifying PK would be non-nullable but principal can still be null
@@ -1164,12 +1243,32 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                         || (entityType.FindDiscriminatorProperty() == null
                             && navigation.DeclaringEntityType.IsStrictlyDerivedFrom(entityShaperExpression.EntityType));
 
-                    var entityProjection = _selectExpression.GenerateWeakEntityProjectionExpression(
-                        targetEntityType, table, identifyingColumn.Name, identifyingColumn.Table, principalNullable);
-
-                    if (entityProjection != null)
+                    if (targetEntityType.MappedToJson())
                     {
-                        innerShaper = new RelationalEntityShaperExpression(targetEntityType, entityProjection, principalNullable);
+                        var jsonColumnName = targetEntityType.MappedToJsonColumnName();
+                        var jsonColumnTypeMapping = targetEntityType.FindRuntimeAnnotationValue(RelationalAnnotationNames.MapToJsonTypeMapping) as RelationalTypeMapping;
+                        var jsonColumn = table.Columns.Single(x => x.Name == jsonColumnName);
+
+                        var jsonProjectionExpression = _selectExpression.GenerateJsonProjectionExpression(
+                            targetEntityType,
+                            jsonColumnName!,
+                            jsonColumnTypeMapping!,
+                            table,
+                            identifyingColumn.Table,
+                            principalNullable,
+                            isCollection: false);
+
+                        innerShaper = new RelationalEntityShaperExpression(targetEntityType, jsonProjectionExpression, nullable: true);
+                    }
+                    else
+                    {
+                        var entityProjection = _selectExpression.GenerateWeakEntityProjectionExpression(
+                            targetEntityType, table, identifyingColumn.Name, identifyingColumn.Table, principalNullable);
+
+                        if (entityProjection != null)
+                        {
+                            innerShaper = new RelationalEntityShaperExpression(targetEntityType, entityProjection, principalNullable);
+                        }
                     }
                 }
 
@@ -1248,7 +1347,7 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
             {
                 // just need any column - we use it only to extract the table it originated from
                 var sourceColumn = entityProjectionExpression
-                    .BindProperty(
+                    .BindKeyProperty(
                         navigation.IsOnDependent
                             ? foreignKey.Properties[0]
                             : foreignKey.PrincipalKey.Properties[0]);
@@ -1362,7 +1461,7 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                 {
                     DeferredOwnedExpansionExpression doee => UnwrapDeferredEntityProjectionExpression(doee),
                     // For the source entity shaper or owned collection expansion
-                    EntityShaperExpression or ShapedQueryExpression or GroupByShaperExpression => expression,
+                    EntityShaperExpression or ShapedQueryExpression or GroupByShaperExpression or JsonProjectionExpression => expression,
                     _ => base.Visit(expression)
                 };
 

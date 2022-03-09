@@ -347,7 +347,7 @@ public class RuntimeProperty : RuntimePropertyBase, IProperty
         => GetContainingKeys();
 
     /// <inheritdoc />
-    [DebuggerStepThrough]
+    //[DebuggerStepThrough]
     IReadOnlyKey? IReadOnlyProperty.FindContainingPrimaryKey()
         => PrimaryKey;
 }

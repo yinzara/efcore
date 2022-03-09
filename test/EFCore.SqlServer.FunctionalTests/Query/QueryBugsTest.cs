@@ -6,6 +6,8 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
 using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore.Diagnostics.Internal;
 using Microsoft.EntityFrameworkCore.Query.Internal;
@@ -10348,6 +10350,542 @@ WHERE [e].[TimeSpan] = @__parameter_0");
     }
 
     #endregion
+
+
+    [ConditionalFact]
+    public void Sikson()
+    {
+        using (var ctx = new MyContext())
+        {
+            //ctx.Database.EnsureDeleted();
+            //ctx.Database.EnsureCreated();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            //-------------------------------------------------------------------------------------------
+            //-------------------------------------------------------------------------------------------
+            //-------------------------------------------------------------------------------------------
+
+            var e1_r_r_r_shared = new MyOwnedLeafShared { SomethingSomething = "e1_r_r_r_shared" };
+            var e1_r_r_c1_shared = new MyOwnedLeafShared { SomethingSomething = "e1_r_r_c1_shared" };
+            var e1_r_r_c2_shared = new MyOwnedLeafShared { SomethingSomething = "e1_r_r_c2_shared" };
+
+            //-------------------------------------------------------------------------------------------
+
+            var e1_r_r_shared = new MyOwnedBranchShared
+            {
+                Date = new DateTime(2100, 1, 1),
+                Fraction = 10.0M,
+                OwnedReferenceSharedLeaf = e1_r_r_r_shared,
+                OwnedCollectionSharedLeaf = new List<MyOwnedLeafShared> { e1_r_r_c1_shared, e1_r_r_c2_shared }
+            };
+
+            //-------------------------------------------------------------------------------------------
+            //-------------------------------------------------------------------------------------------
+
+            var e1_r_c1_r_shared = new MyOwnedLeafShared { SomethingSomething = "e1_r_c1_r_shared" };
+            var e1_r_c1_c1_shared = new MyOwnedLeafShared { SomethingSomething = "e1_r_c1_c1_shared" };
+            var e1_r_c1_c2_shared = new MyOwnedLeafShared { SomethingSomething = "e1_r_c1_c2_shared" };
+
+            //-------------------------------------------------------------------------------------------
+
+            var e1_r_c1_shared = new MyOwnedBranchShared
+            {
+                Date = new DateTime(2101, 1, 1),
+                Fraction = 10.1M,
+                OwnedReferenceSharedLeaf = e1_r_c1_r_shared,
+                OwnedCollectionSharedLeaf = new List<MyOwnedLeafShared> { e1_r_c1_c1_shared, e1_r_c1_c2_shared }
+            };
+
+            //-------------------------------------------------------------------------------------------
+            //-------------------------------------------------------------------------------------------
+
+            var e1_r_c2_r_shared = new MyOwnedLeafShared { SomethingSomething = "e1_r_c2_r_shared" };
+            var e1_r_c2_c1_shared = new MyOwnedLeafShared { SomethingSomething = "e1_r_c2_c1_shared" };
+            var e1_r_c2_c2_shared = new MyOwnedLeafShared { SomethingSomething = "e1_r_c2_c2_shared" };
+
+            //-------------------------------------------------------------------------------------------
+
+            var e1_r_c2_shared = new MyOwnedBranchShared
+            {
+                Date = new DateTime(2102, 1, 1),
+                Fraction = 10.2M,
+                OwnedReferenceSharedLeaf = e1_r_c2_r_shared,
+                OwnedCollectionSharedLeaf = new List<MyOwnedLeafShared> { e1_r_c2_c1_shared, e1_r_c2_c2_shared }
+            };
+
+            //-------------------------------------------------------------------------------------------
+            //-------------------------------------------------------------------------------------------
+
+
+            var e1_r_shared = new MyOwnedRootShared
+            {
+                Name = "e1_r_shared",
+                Number = 10,
+                OwnedReferenceSharedBranch = e1_r_r_shared,
+                OwnedCollectionSharedBranch = new List<MyOwnedBranchShared> { e1_r_c1_shared, e1_r_c2_shared }
+            };
+
+
+
+
+
+
+
+            //-------------------------------------------------------------------------------------------
+            //-------------------------------------------------------------------------------------------
+            //-------------------------------------------------------------------------------------------
+
+
+            var e1_c1_r_r_shared = new MyOwnedLeafShared { SomethingSomething = "e1_c1_r_r_shared" };
+            var e1_c1_r_c1_shared = new MyOwnedLeafShared { SomethingSomething = "e1_c1_r_c1_shared" };
+            var e1_c1_r_c2_shared = new MyOwnedLeafShared { SomethingSomething = "e1_c1_r_c2_shared" };
+
+            //-------------------------------------------------------------------------------------------
+
+            var e1_c1_r_shared = new MyOwnedBranchShared
+            {
+                Date = new DateTime(2110, 1, 1),
+                Fraction = 11.0M,
+                OwnedReferenceSharedLeaf = e1_c1_r_r_shared,
+                OwnedCollectionSharedLeaf = new List<MyOwnedLeafShared> { e1_c1_r_c1_shared, e1_c1_r_c2_shared }
+            };
+
+            //-------------------------------------------------------------------------------------------
+            //-------------------------------------------------------------------------------------------
+
+            var e1_c1_c1_r_shared = new MyOwnedLeafShared { SomethingSomething = "e1_c1_c1_r_shared" };
+            var e1_c1_c1_c1_shared = new MyOwnedLeafShared { SomethingSomething = "e1_c1_c1_c1_shared" };
+            var e1_c1_c1_c2_shared = new MyOwnedLeafShared { SomethingSomething = "e1_c1_c1_c2_shared" };
+
+            //-------------------------------------------------------------------------------------------
+
+            var e1_c1_c1_shared = new MyOwnedBranchShared
+            {
+                Date = new DateTime(2111, 1, 1),
+                Fraction = 11.1M,
+                OwnedReferenceSharedLeaf = e1_c1_c1_r_shared,
+                OwnedCollectionSharedLeaf = new List<MyOwnedLeafShared> { e1_c1_c1_c1_shared, e1_c1_c1_c2_shared }
+            };
+
+            //-------------------------------------------------------------------------------------------
+            //-------------------------------------------------------------------------------------------
+
+            var e1_c1_c2_r_shared = new MyOwnedLeafShared { SomethingSomething = "e1_c1_c2_r_shared" };
+            var e1_c1_c2_c1_shared = new MyOwnedLeafShared { SomethingSomething = "e1_c1_c2_c1_shared" };
+            var e1_c1_c2_c2_shared = new MyOwnedLeafShared { SomethingSomething = "e1_c1_c2_c2_shared" };
+
+            //-------------------------------------------------------------------------------------------
+
+            var e1_c1_c2_shared = new MyOwnedBranchShared
+            {
+                Date = new DateTime(2112, 1, 1),
+                Fraction = 11.2M,
+                OwnedReferenceSharedLeaf = e1_c1_c2_r_shared,
+                OwnedCollectionSharedLeaf = new List<MyOwnedLeafShared> { e1_c1_c2_c1_shared, e1_c1_c2_c2_shared }
+            };
+
+            //-------------------------------------------------------------------------------------------
+            //-------------------------------------------------------------------------------------------
+
+
+            var e1_c1_shared = new MyOwnedRootShared
+            {
+                Name = "e1_c1_shared",
+                Number = 11,
+                OwnedReferenceSharedBranch = e1_c1_r_shared,
+                OwnedCollectionSharedBranch = new List<MyOwnedBranchShared> { e1_c1_c1_shared, e1_c1_c2_shared }
+            };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            //-------------------------------------------------------------------------------------------
+            //-------------------------------------------------------------------------------------------
+            //-------------------------------------------------------------------------------------------
+
+
+            var e1_c2_r_r_shared = new MyOwnedLeafShared { SomethingSomething = "e1_c2_r_r_shared" };
+            var e1_c2_r_c1_shared = new MyOwnedLeafShared { SomethingSomething = "e1_c2_r_c1_shared" };
+            var e1_c2_r_c2_shared = new MyOwnedLeafShared { SomethingSomething = "e1_c2_r_c2_shared" };
+
+            //-------------------------------------------------------------------------------------------
+
+            var e1_c2_r_shared = new MyOwnedBranchShared
+            {
+                Date = new DateTime(2120, 1, 1),
+                Fraction = 12.0M,
+                OwnedReferenceSharedLeaf = e1_c2_r_r_shared,
+                OwnedCollectionSharedLeaf = new List<MyOwnedLeafShared> { e1_c2_r_c1_shared, e1_c2_r_c2_shared }
+            };
+
+            //-------------------------------------------------------------------------------------------
+            //-------------------------------------------------------------------------------------------
+
+            var e1_c2_c1_r_shared = new MyOwnedLeafShared { SomethingSomething = "e1_c2_c1_r_shared" };
+            var e1_c2_c1_c1_shared = new MyOwnedLeafShared { SomethingSomething = "e1_c2_c1_c1_shared" };
+            var e1_c2_c1_c2_shared = new MyOwnedLeafShared { SomethingSomething = "e1_c2_c1_c2_shared" };
+
+            //-------------------------------------------------------------------------------------------
+
+            var e1_c2_c1_shared = new MyOwnedBranchShared
+            {
+                Date = new DateTime(2121, 1, 1),
+                Fraction = 12.1M,
+                OwnedReferenceSharedLeaf = e1_c2_c1_r_shared,
+                OwnedCollectionSharedLeaf = new List<MyOwnedLeafShared> { e1_c2_c1_c1_shared, e1_c2_c1_c2_shared }
+            };
+
+            //-------------------------------------------------------------------------------------------
+            //-------------------------------------------------------------------------------------------
+
+            var e1_c2_c2_r_shared = new MyOwnedLeafShared { SomethingSomething = "e1_c2_c2_r_shared" };
+            var e1_c2_c2_c1_shared = new MyOwnedLeafShared { SomethingSomething = "e1_c2_c2_c1_shared" };
+            var e1_c2_c2_c2_shared = new MyOwnedLeafShared { SomethingSomething = "e1_c2_c2_c2_shared" };
+
+            //-------------------------------------------------------------------------------------------
+
+            var e1_c2_c2_shared = new MyOwnedBranchShared
+            {
+                Date = new DateTime(2122, 1, 1),
+                Fraction = 12.2M,
+                OwnedReferenceSharedLeaf = e1_c2_c2_r_shared,
+                OwnedCollectionSharedLeaf = new List<MyOwnedLeafShared> { e1_c2_c2_c1_shared, e1_c2_c2_c2_shared }
+            };
+
+            //-------------------------------------------------------------------------------------------
+            //-------------------------------------------------------------------------------------------
+
+
+            var e1_c2_shared = new MyOwnedRootShared
+            {
+                Name = "e1_c2_shared",
+                Number = 12,
+                OwnedReferenceSharedBranch = e1_c2_r_shared,
+                OwnedCollectionSharedBranch = new List<MyOwnedBranchShared> { e1_c2_c1_shared , e1_c2_c2_shared }
+            };
+
+            //-------------------------------------------------------------------------------------------
+            //-------------------------------------------------------------------------------------------
+            //-------------------------------------------------------------------------------------------
+
+
+            var entity1 = new MyEntity
+            {
+                Name = "MyEntity1",
+                OwnedReferenceSharedRoot = e1_r_shared,
+                OwnedCollectionSharedRoot = new List<MyOwnedRootShared> { e1_c1_shared, e1_c2_shared }
+            };
+
+            var jsonReference = JsonSerializer.Serialize(entity1.OwnedReferenceSharedRoot);
+            var jsonCollection = JsonSerializer.Serialize(entity1.OwnedCollectionSharedRoot);
+
+        }
+
+        using (var ctx = new MyContext())
+        {
+            var query1 = ctx.MyEntities.Select(x => x.OwnedReferenceSharedRoot.OwnedReferenceSharedBranch).AsNoTracking().ToList();
+            var query2 = ctx.MyEntities.Select(x => x.OwnedReferenceSharedRoot).AsNoTracking().ToList();
+            var query3 = ctx.MyEntities.Select(x => x.OwnedCollectionSharedRoot).AsNoTracking().ToList();
+            var query4 = ctx.MyEntities.Select(x => x.OwnedReferenceSharedRoot.OwnedReferenceSharedBranch.OwnedCollectionSharedLeaf).AsNoTracking().ToList();
+
+            var query5 = ctx.MyEntities.Select(x => new
+            {
+                //x.OwnedReferenceSharedRoot,
+                x.OwnedReferenceSharedRoot.OwnedReferenceSharedBranch,
+                x.OwnedReferenceSharedRoot.OwnedReferenceSharedBranch.OwnedCollectionSharedLeaf
+            }).AsNoTracking().ToList();
+
+
+
+
+            var query6 = ctx.MyEntities.AsNoTracking().Select(x => x.OwnedReferenceSharedRoot.OwnedReferenceSharedBranch.Date).ToList();
+            var query7 = ctx.MyEntities.Where(x => x.OwnedReferenceSharedRoot.OwnedReferenceSharedBranch.Fraction < 20.5M).Select(x => x.Id).ToList();
+
+        }
+    }
+
+    public class MyContext : DbContext
+    {
+        public DbSet<MyEntity> MyEntities { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MyEntity>().OwnsOne(x => x.OwnedReferenceSharedRoot, b =>
+            {
+                b.OwnsOne(x => x.OwnedReferenceSharedBranch, bb =>
+                {
+                    bb.OwnsOne(x => x.OwnedReferenceSharedLeaf);
+                    bb.OwnsMany(x => x.OwnedCollectionSharedLeaf);
+                });
+
+                b.OwnsMany(x => x.OwnedCollectionSharedBranch, bb =>
+                {
+                    bb.OwnsOne(x => x.OwnedReferenceSharedLeaf);
+                    bb.OwnsMany(x => x.OwnedCollectionSharedLeaf);
+                });
+            });
+
+            //modelBuilder.Entity<MyEntity>().Navigation(x => x.OwnedReferenceSharedRoot).IsRequired();
+
+            modelBuilder.Entity<MyEntity>().OwnsMany(x => x.OwnedCollectionSharedRoot, b =>
+            {
+                b.OwnsOne(x => x.OwnedReferenceSharedBranch, bb =>
+                {
+                    bb.OwnsOne(x => x.OwnedReferenceSharedLeaf);
+                    bb.OwnsMany(x => x.OwnedCollectionSharedLeaf);
+                });
+
+                b.OwnsMany(x => x.OwnedCollectionSharedBranch, bb =>
+                {
+                    bb.OwnsOne(x => x.OwnedReferenceSharedLeaf);
+                    bb.OwnsMany(x => x.OwnedCollectionSharedLeaf);
+                });
+            });
+
+            // TODO: add validation - when using mapreferencetojson but using on a collection!
+            modelBuilder.Entity<MyEntity>().MapReferenceToJson(x => x.OwnedReferenceSharedRoot, "json_reference_shared");
+            modelBuilder.Entity<MyEntity>().MapCollectionToJson(x => x.OwnedCollectionSharedRoot, "json_collection_shared");
+            //modelBuilder.Entity<MyEntity>().MapReferenceToJson(x => x.OwnedCollectionSharedRoot, "json_collection_shared");
+        }
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            optionsBuilder.UseSqlServer(@"Server=(localdb)\mssqllocaldb;Database=JsonSandbox;Trusted_Connection=True;MultipleActiveResultSets=true");
+        }
+    }
+
+    public class MyEntity
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        //public MyOwnedRoot1 OwnedReferenceRoot { get; set; }
+        //public List<MyOwnedRoot2> OwnedCollectionRoot { get; set; }
+
+        public MyOwnedRootShared OwnedReferenceSharedRoot { get; set; }
+        public List<MyOwnedRootShared> OwnedCollectionSharedRoot { get; set; }
+    }
+
+    public class MyOwnedRoot1
+    {
+        public string Name1 { get; set; }
+        public int Number1 { get; set; }
+
+        public MyOwnedBranch11 OwnedReferenceBranch { get; set; }
+        public List<MyOwnedBranch12> OwnedCollectionBranch { get; set; }
+    }
+
+    public class MyOwnedRoot2
+    {
+        public string Name2 { get; set; }
+        public int Number2 { get; set; }
+
+        public MyOwnedBranch21 OwnedReferenceBranch { get; set; }
+        public List<MyOwnedBranch22> OwnedCollectionBranch { get; set; }
+    }
+
+    public class MyOwnedRootShared
+    {
+        public string Name { get; set; }
+        public int Number { get; set; }
+
+        public MyOwnedBranchShared OwnedReferenceSharedBranch { get; set; }
+        public List<MyOwnedBranchShared> OwnedCollectionSharedBranch { get; set; }
+    }
+
+    public class MyOwnedBranch11
+    {
+        public DateTime Date1 { get; set; }
+        public decimal Fraction1 { get; set; }
+
+        public MyOwnedLeaf111 OwnedReferenceLeaf { get; set; }
+        public List<MyOwnedLeaf112> OwnedCollectionLeaf { get; set; }
+    }
+
+    public class MyOwnedBranch12
+    {
+        public DateTime Date2 { get; set; }
+        public decimal Fraction2 { get; set; }
+        public MyOwnedLeaf121 OwnedReferenceLeaf { get; set; }
+        public List<MyOwnedLeaf122> OwnedCollectionLeaf { get; set; }
+    }
+
+    public class MyOwnedBranch21
+    {
+        public DateTime Date1 { get; set; }
+        public decimal Fraction1 { get; set; }
+        public MyOwnedLeaf211 OwnedReferenceLeaf { get; set; }
+        public List<MyOwnedLeaf212> OwnedCollectionLeaf { get; set; }
+    }
+
+    public class MyOwnedBranch22
+    {
+        public DateTime Date2 { get; set; }
+        public decimal Fraction2 { get; set; }
+
+        public MyOwnedLeaf221 OwnedReferenceLeaf { get; set; }
+        public List<MyOwnedLeaf222> OwnedCollectionLeaf { get; set; }
+    }
+
+    public class MyOwnedBranchShared
+    {
+        public DateTime Date { get; set; }
+        public decimal Fraction { get; set; }
+
+        public MyOwnedLeafShared OwnedReferenceSharedLeaf { get; set; }
+        public List<MyOwnedLeafShared> OwnedCollectionSharedLeaf { get; set; }
+    }
+
+    public class MyOwnedLeaf111
+    {
+        public string Something { get; set; }
+    }
+
+    public class MyOwnedLeaf112
+    {
+        public string Something { get; set; }
+    }
+
+    public class MyOwnedLeaf121
+    {
+        public string Something { get; set; }
+    }
+
+    public class MyOwnedLeaf122
+    {
+        public string Something { get; set; }
+    }
+
+    public class MyOwnedLeaf211
+    {
+        public string Something { get; set; }
+    }
+
+    public class MyOwnedLeaf212
+    {
+        public string Something { get; set; }
+    }
+
+    public class MyOwnedLeaf221
+    {
+        public string Something { get; set; }
+    }
+
+    public class MyOwnedLeaf222
+    {
+        public string Something { get; set; }
+    }
+
+    public class MyOwnedLeafShared
+    {
+        public string SomethingSomething { get; set; }
+    }
 
     protected override string StoreName
         => "QueryBugsTest";

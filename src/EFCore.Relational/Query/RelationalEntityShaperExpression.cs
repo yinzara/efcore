@@ -98,6 +98,12 @@ public class RelationalEntityShaperExpression : EntityShaperExpression
             ?? entityType.GetDefaultMappings().Single().Table;
         if (table.IsOptional(entityType))
         {
+            if (entityType.MappedToJson())
+            {
+                // TODO: implement optional dependent for json mapped entities
+                return baseCondition;
+            }
+
             // Optional dependent
             var valueBufferParameter = baseCondition.Parameters[0];
             var condition = entityType.GetNonPrincipalSharedNonPkProperties(table)

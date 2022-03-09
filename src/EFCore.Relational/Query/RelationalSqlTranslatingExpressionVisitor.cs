@@ -1302,10 +1302,21 @@ public class RelationalSqlTranslatingExpressionVisitor : ExpressionVisitor
     {
         if (entityReferenceExpression.ParameterEntity != null)
         {
+            if (entityReferenceExpression.ParameterEntity.ValueBufferExpression is JsonProjectionExpression jsonProjectionExpression)
+            {
+                return jsonProjectionExpression.BindProperty(property);
+            }
+
             var valueBufferExpression = Visit(entityReferenceExpression.ParameterEntity.ValueBufferExpression);
 
+            //if (valueBufferExpression is JsonEntityExpression jsonEntityExpression)
+            //{
+            //    return jsonEntityExpression.BindProperty(property);
+            //}
+
+
             var entityProjectionExpression = (EntityProjectionExpression)valueBufferExpression;
-            var propertyAccess = entityProjectionExpression.BindProperty(property);
+            var propertyAccess = entityProjectionExpression.BindProperty2(property);
 
             var entityType = entityReferenceExpression.EntityType;
             if (entityType.FindDiscriminatorProperty() != null
@@ -1333,7 +1344,7 @@ public class RelationalSqlTranslatingExpressionVisitor : ExpressionVisitor
 
             var condition = nonPrincipalSharedNonPkProperties
                 .Where(e => !e.IsNullable)
-                .Select(p => entityProjectionExpression.BindProperty(p))
+                .Select(p => entityProjectionExpression.BindProperty2(p))
                 .Select(c => (SqlExpression)_sqlExpressionFactory.NotEqual(c, _sqlExpressionFactory.Constant(null)))
                 .Aggregate((a, b) => _sqlExpressionFactory.AndAlso(a, b));
 
@@ -1352,7 +1363,7 @@ public class RelationalSqlTranslatingExpressionVisitor : ExpressionVisitor
 
             var projectionBindingExpression = (ProjectionBindingExpression)entityShaper.ValueBufferExpression;
             var entityProjectionExpression = (EntityProjectionExpression)subSelectExpression.GetProjection(projectionBindingExpression);
-            var innerProjection = entityProjectionExpression.BindProperty(property);
+            var innerProjection = entityProjectionExpression.BindProperty2(property);
             subSelectExpression.ReplaceProjection(new List<Expression> { innerProjection });
             subSelectExpression.ApplyProjection();
 

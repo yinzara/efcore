@@ -395,7 +395,11 @@ public class ExpressionPrinter : ExpressionVisitor
 
             if (blockExpression.Result != null)
             {
-                Append("return ");
+                if (blockExpression.Result.Type != typeof(void))
+                {
+                    Append("return ");
+                }
+
                 Visit(blockExpression.Result);
                 AppendLine(";");
             }

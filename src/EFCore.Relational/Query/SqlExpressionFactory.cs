@@ -63,6 +63,7 @@ public class SqlExpressionFactory : ISqlExpressionFactory
             SqlBinaryExpression e => ApplyTypeMappingOnSqlBinary(e, typeMapping),
             SqlConstantExpression e => e.ApplyTypeMapping(typeMapping),
             SqlFragmentExpression e => e,
+            // maumar - apply default mapping should apply it to arguments also, like we do for other expressions
             SqlFunctionExpression e => e.ApplyTypeMapping(typeMapping),
             SqlParameterExpression e => e.ApplyTypeMapping(typeMapping),
             SqlUnaryExpression e => ApplyTypeMappingOnSqlUnary(e, typeMapping),
@@ -616,7 +617,7 @@ public class SqlExpressionFactory : ISqlExpressionFactory
                 || !entityType.GetAllBaseTypesInclusiveAscending()
                     .All(e => (e == entityType || e.IsAbstract()) && !HasSiblings(e))))
         {
-            var discriminatorColumn = GetMappedEntityProjectionExpression(selectExpression).BindProperty(discriminatorProperty);
+            var discriminatorColumn = GetMappedEntityProjectionExpression(selectExpression).BindProperty2(discriminatorProperty);
             var concreteEntityTypes = entityType.GetConcreteDerivedTypesInclusive().ToList();
             var predicate = concreteEntityTypes.Count == 1
                 ? (SqlExpression)Equal(discriminatorColumn, Constant(concreteEntityTypes[0].GetDiscriminatorValue()))
@@ -661,5 +662,5 @@ public class SqlExpressionFactory : ISqlExpressionFactory
             new ProjectionBindingExpression(selectExpression, new ProjectionMember(), typeof(ValueBuffer)));
 
     private SqlExpression IsNotNull(IProperty property, EntityProjectionExpression entityProjection)
-        => IsNotNull(entityProjection.BindProperty(property));
+        => IsNotNull(entityProjection.BindProperty2(property));
 }

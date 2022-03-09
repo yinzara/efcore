@@ -389,6 +389,10 @@ public class SqlNullabilityProcessor
                 => VisitSqlParameter(sqlParameterExpression, allowOptimizedExpansion, out nullable),
             SqlUnaryExpression sqlUnaryExpression
                 => VisitSqlUnary(sqlUnaryExpression, allowOptimizedExpansion, out nullable),
+            JsonPathExpression jsonPathExpression
+                => VisitJsonPathExpression(jsonPathExpression, allowOptimizedExpansion, out nullable),
+            //JsonEntityExpression jsonEntityExpression
+            //    => VisitJsonEntityExpression(jsonEntityExpression, allowOptimizedExpansion, out nullable),
             _ => VisitCustomSqlExpression(sqlExpression, allowOptimizedExpansion, out nullable)
         };
 
@@ -1123,6 +1127,42 @@ public class SqlNullabilityProcessor
             ? OptimizeNonNullableNotExpression(updated)
             : updated;
     }
+
+    /// <summary>
+    ///     Visits a <see cref="JsonPathExpression" /> and computes its nullability.
+    /// </summary>
+    /// <param name="jsonPathExpression">A json path expression to visit.</param>
+    /// <param name="allowOptimizedExpansion">A bool value indicating if optimized expansion which considers null value as false value is allowed.</param>
+    /// <param name="nullable">A bool value indicating whether the sql expression is nullable.</param>
+    /// <returns>An optimized sql expression.</returns>
+    protected virtual SqlExpression VisitJsonPathExpression(
+        JsonPathExpression jsonPathExpression,
+        bool allowOptimizedExpansion,
+        out bool nullable)
+    {
+        // maumar TODO - fix it
+        nullable = true;
+
+        return jsonPathExpression;
+    }
+
+    ///// <summary>
+    /////     Visits a <see cref="JsonEntityExpression" /> and computes its nullability.
+    ///// </summary>
+    ///// <param name="jsonEntityExpression">A json entity expression to visit.</param>
+    ///// <param name="allowOptimizedExpansion">A bool value indicating if optimized expansion which considers null value as false value is allowed.</param>
+    ///// <param name="nullable">A bool value indicating whether the sql expression is nullable.</param>
+    ///// <returns>An optimized sql expression.</returns>
+    //protected virtual SqlExpression VisitJsonEntityExpression(
+    //    JsonEntityExpression jsonEntityExpression,
+    //    bool allowOptimizedExpansion,
+    //    out bool nullable)
+    //{
+    //    // maumar TODO - fix it
+    //    nullable = true;
+
+    //    return jsonEntityExpression;
+    //}
 
     private static bool? TryGetBoolConstantValue(SqlExpression? expression)
         => expression is SqlConstantExpression constantExpression

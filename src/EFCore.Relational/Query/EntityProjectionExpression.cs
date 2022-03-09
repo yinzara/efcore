@@ -24,7 +24,7 @@ public class EntityProjectionExpression : Expression
     ///     Creates a new instance of the <see cref="EntityProjectionExpression" /> class.
     /// </summary>
     /// <param name="entityType">The entity type to shape.</param>
-    /// <param name="propertyExpressionMap">A dictionary of column expressions corresponding to properties of the entity type.</param>
+    /// <param name="propertyExpressionMap">A dictionary of column expressions corresponding to properties (or in some cases navigations) of the entity type.</param>
     /// <param name="discriminatorExpression">A <see cref="SqlExpression" /> to generate discriminator for each concrete entity type in hierarchy.</param>
     public EntityProjectionExpression(
         IEntityType entityType,
@@ -84,7 +84,8 @@ public class EntityProjectionExpression : Expression
         var propertyExpressionMap = new Dictionary<IProperty, ColumnExpression>();
         foreach (var (property, columnExpression) in _propertyExpressionMap)
         {
-            propertyExpressionMap[property] = columnExpression.MakeNullable();
+            var nullable = columnExpression.MakeNullable();
+            propertyExpressionMap[property] = nullable;
         }
 
         var discriminatorExpression = DiscriminatorExpression;
@@ -113,8 +114,12 @@ public class EntityProjectionExpression : Expression
         var propertyExpressionMap = new Dictionary<IProperty, ColumnExpression>();
         foreach (var (property, columnExpression) in _propertyExpressionMap)
         {
-            if (derivedType.IsAssignableFrom(property.DeclaringEntityType)
-                || property.DeclaringEntityType.IsAssignableFrom(derivedType))
+            // maumar:
+            // TODO: any other possibilities here?
+            var declaringEntityType = (property as IProperty)?.DeclaringEntityType ?? ((INavigation)property).DeclaringEntityType;
+
+            if (derivedType.IsAssignableFrom(declaringEntityType)
+                || declaringEntityType.IsAssignableFrom(derivedType))
             {
                 propertyExpressionMap[property] = columnExpression;
             }
@@ -139,7 +144,22 @@ public class EntityProjectionExpression : Expression
     /// </summary>
     /// <param name="property">A property to bind.</param>
     /// <returns>A column which is a SQL representation of the property.</returns>
-    public virtual ColumnExpression BindProperty(IProperty property)
+    public virtual ColumnExpression BindKeyProperty(IProperty property)
+    {
+        if (!EntityType.IsAssignableFrom(property.DeclaringEntityType)
+            && !property.DeclaringEntityType.IsAssignableFrom(EntityType))
+        {
+            throw new InvalidOperationException(
+                RelationalStrings.UnableToBindMemberToEntityProjection("property", property.Name, EntityType.DisplayName()));
+        }
+
+        return (ColumnExpression)_propertyExpressionMap[property];
+    }
+
+    /// <summary>
+    ///     TODO
+    /// </summary>
+    public virtual SqlExpression BindProperty2(IProperty property)
     {
         if (!EntityType.IsAssignableFrom(property.DeclaringEntityType)
             && !property.DeclaringEntityType.IsAssignableFrom(EntityType))

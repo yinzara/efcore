@@ -114,9 +114,16 @@ public class RelationalModel : Annotatable, IRelationalModel
     public static IModel Add(
         IModel model,
         IRelationalAnnotationProvider? relationalAnnotationProvider,
+        IRelationalTypeMappingSource? relationalTypeMappingSource,
         bool designTime)
     {
-        model.AddRuntimeAnnotation(RelationalAnnotationNames.RelationalModel, Create(model, relationalAnnotationProvider, designTime));
+        model.AddRuntimeAnnotation(
+            RelationalAnnotationNames.RelationalModel,
+            Create(
+                model,
+                relationalAnnotationProvider,
+                relationalTypeMappingSource,
+                designTime));
         return model;
     }
 
@@ -129,6 +136,7 @@ public class RelationalModel : Annotatable, IRelationalModel
     public static IRelationalModel Create(
         IModel model,
         IRelationalAnnotationProvider? relationalAnnotationProvider,
+        IRelationalTypeMappingSource? relationalTypeMappingSource,
         bool designTime)
     {
         var databaseModel = new RelationalModel(model);
@@ -137,13 +145,25 @@ public class RelationalModel : Annotatable, IRelationalModel
         {
             AddDefaultMappings(databaseModel, entityType);
 
-            AddTables(databaseModel, entityType);
+            AddTables(databaseModel, entityType, relationalTypeMappingSource);
 
             AddViews(databaseModel, entityType);
 
             AddSqlQueries(databaseModel, entityType);
 
             AddMappedFunctions(databaseModel, entityType);
+
+            // TODO: we should make this in a way that npgsql can hook their json/jsonb mapping here
+            // maumar(second pass): do we still need this annotation, or can we extract the mapping from JsonColumn where needed?
+            if (!designTime && entityType.MappedToJson() && relationalTypeMappingSource != null)
+            {
+                var jsonTypeMappingAnnotation = entityType.FindRuntimeAnnotation(RelationalAnnotationNames.MapToJsonTypeMapping);
+                if (jsonTypeMappingAnnotation == null )
+                {
+                    var jsonColumnTypeMapping = relationalTypeMappingSource.GetMapping(typeof(string));
+                    entityType.AddRuntimeAnnotation(RelationalAnnotationNames.MapToJsonTypeMapping, jsonColumnTypeMapping);
+                }
+            }
         }
 
         AddTvfs(databaseModel);
@@ -336,7 +356,7 @@ public class RelationalModel : Annotatable, IRelationalModel
         tableMappings.Reverse();
     }
 
-    private static void AddTables(RelationalModel databaseModel, IEntityType entityType)
+    private static void AddTables(RelationalModel databaseModel, IEntityType entityType, IRelationalTypeMappingSource? relationalTypeMappingSource)
     {
         var tableName = entityType.GetTableName();
         if (tableName == null)
@@ -379,6 +399,27 @@ public class RelationalModel : Annotatable, IRelationalModel
             {
                 IsSplitEntityTypePrincipal = true
             };
+
+            // TODO: convert to runtime annotation (???)
+            var mapToJsonColumnName = mappedType.MappedToJsonColumnName();
+
+            var jsonColumn = default(JsonColumn);
+            var ownership = default(IForeignKey);
+            if (!string.IsNullOrEmpty(mapToJsonColumnName))
+            {
+                jsonColumn = (JsonColumn?)table.FindColumn(mapToJsonColumnName);
+                if (jsonColumn == null)
+                {
+                    //we shouldn't hardcore string here - there could be type specifided explicitly somewhere - postgres has json and jsonb and we need to figure out which one
+                    jsonColumn = new JsonColumn(mapToJsonColumnName, relationalTypeMappingSource!.GetMapping(typeof(string)).StoreType, table);
+                    table.Columns.Add(mapToJsonColumnName, jsonColumn);
+                    jsonColumn.IsNullable = false;
+                }
+
+                ownership = mappedType.GetForeignKeys().Where(fk => fk.IsOwnership).Single();
+                jsonColumn.IsNullable = jsonColumn.IsNullable || !ownership.IsRequired || !ownership.IsUnique;
+            }
+
             foreach (var property in mappedType.GetProperties())
             {
                 var columnName = property.GetColumnName(mappedTable);
@@ -387,14 +428,31 @@ public class RelationalModel : Annotatable, IRelationalModel
                     continue;
                 }
 
-                var column = (Column?)table.FindColumn(columnName);
+                Column? column;
+                if (jsonColumn != null && ownership != null && !property.IsPrimaryKey())
+                {
+                    column = jsonColumn.FindColumn(ownership, columnName);
+                }
+                else
+                {
+                    column = (Column?)table.FindColumn(columnName);
+                }
+
                 if (column == null)
                 {
                     column = new(columnName, property.GetColumnType(mappedTable), table)
                     {
                         IsNullable = property.IsColumnNullable(mappedTable)
                     };
-                    table.Columns.Add(columnName, column);
+
+                    if (jsonColumn != null && ownership != null && !property.IsPrimaryKey())
+                    {
+                        jsonColumn.AddColumn(ownership, columnName, column);
+                    }
+                    else
+                    {
+                        table.Columns.Add(columnName, column);
+                    }
                 }
                 else if (!property.IsColumnNullable(mappedTable))
                 {
@@ -962,9 +1020,17 @@ public class RelationalModel : Annotatable, IRelationalModel
             }
 
             SortedSet<IForeignKey>? rowInternalForeignKeys = null;
-            foreach (var foreignKey in entityType.FindForeignKeys(primaryKey.Properties))
+
+            // for json mapped entities fitler out collection key
+            // TODO: only do it for entities that are collections (and not references)
+            var foreignKeys = entityType.MappedToJson()
+                ? entityType.FindForeignKeys(primaryKey.Properties.Where(p => p.IsForeignKey()).ToList().AsReadOnly())
+                : entityType.FindForeignKeys(primaryKey.Properties);
+
+            foreach (var foreignKey in foreignKeys)
             {
-                if (foreignKey.IsUnique
+                // for json mapped entities we can have row internal FKs for collection navigations
+                if ((foreignKey.IsUnique || entityType.MappedToJson())
                     && foreignKey.PrincipalKey.IsPrimaryKey()
                     && !foreignKey.DeclaringEntityType.IsAssignableFrom(foreignKey.PrincipalEntityType)
                     && !foreignKey.PrincipalEntityType.IsAssignableFrom(foreignKey.DeclaringEntityType)
