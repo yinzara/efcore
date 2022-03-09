@@ -123,19 +123,28 @@ public static class RelationalForeignKeyExtensions
 
         if (foreignKey.IsUnique != duplicateForeignKey.IsUnique)
         {
-            if (shouldThrow)
+            // in case of entities mapped to json, unique and non unique FKs can be compatible
+            // so filter out this check if the FKs we are testing are for those json mapped entities
+            // TODO: make the correct validation here - don't just allow all of those, there still could be some incompatibilities between
+            if (!foreignKey.IsOwnership
+                || !foreignKey.DeclaringEntityType.MappedToJson()
+                || !duplicateForeignKey.IsOwnership
+                || !duplicateForeignKey.DeclaringEntityType.MappedToJson())
             {
-                throw new InvalidOperationException(
-                    RelationalStrings.DuplicateForeignKeyUniquenessMismatch(
-                        foreignKey.Properties.Format(),
-                        foreignKey.DeclaringEntityType.DisplayName(),
-                        duplicateForeignKey.Properties.Format(),
-                        duplicateForeignKey.DeclaringEntityType.DisplayName(),
-                        foreignKey.DeclaringEntityType.GetSchemaQualifiedTableName(),
-                        foreignKey.GetConstraintName(storeObject, principalTable.Value)));
-            }
+                if (shouldThrow)
+                {
+                    throw new InvalidOperationException(
+                        RelationalStrings.DuplicateForeignKeyUniquenessMismatch(
+                            foreignKey.Properties.Format(),
+                            foreignKey.DeclaringEntityType.DisplayName(),
+                            duplicateForeignKey.Properties.Format(),
+                            duplicateForeignKey.DeclaringEntityType.DisplayName(),
+                            foreignKey.DeclaringEntityType.GetSchemaQualifiedTableName(),
+                            foreignKey.GetConstraintName(storeObject, principalTable.Value)));
+                }
 
-            return false;
+                return false;
+            }
         }
 
         var referentialAction = RelationalModel.ToReferentialAction(foreignKey.DeleteBehavior);

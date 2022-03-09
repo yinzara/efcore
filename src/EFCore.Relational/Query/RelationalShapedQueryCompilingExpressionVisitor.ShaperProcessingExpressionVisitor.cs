@@ -3,6 +3,7 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
@@ -117,6 +118,12 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
             = new Dictionary<ParameterExpression, object>();
         private readonly IDictionary<ProjectionBindingExpression, string> _singleEntityTypeDiscriminatorValues
             = new Dictionary<ProjectionBindingExpression, string>();
+
+        private readonly IDictionary<ParameterExpression, ParameterExpression> _materializationContextToJsonElementVariableMap
+            = new Dictionary<ParameterExpression, ParameterExpression>();
+
+        private readonly MethodInfo _extractJsonElementMethod = typeof(ShaperProcessingExpressionVisitor).GetMethod(nameof(ExtractJsonElement))!;
+        private readonly MethodInfo _extractJsonPropertyMethodInfo = typeof(ShaperProcessingExpressionVisitor).GetMethod(nameof(ExtractJsonProperty))!;
 
         public ShaperProcessingExpressionVisitor(
             RelationalShapedQueryCompilingExpressionVisitor parentVisitor,
@@ -387,12 +394,105 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
             return base.VisitBinary(binaryExpression);
         }
 
+        public static JsonElement ExtractJsonElement(DbDataReader dataReader, int index, string[] additionalPath)
+        {
+            var jsonString = dataReader.GetString(index);
+            var jsonDocument = JsonDocument.Parse(jsonString);
+            var jsonElement = jsonDocument.RootElement;
+
+            foreach (var pathElement in additionalPath)
+            {
+                jsonElement = jsonElement.GetProperty(pathElement);
+            }
+
+            return jsonElement;
+        }
+
+        private (ParameterExpression, ParameterExpression, Expression, Expression) PrepareForJsonShaping(ProjectionBindingExpression projectionBindingExpression, IEntityType entityType)
+        {
+            var projectionIndex = (ValueTuple<int, Dictionary<IProperty, int>, string[]>)GetProjectionIndex(projectionBindingExpression);
+
+            var jsonColumnProjectionIndex = projectionIndex.Item1;
+            var keyPropertyIndexMap = projectionIndex.Item2;
+            var additionalPath = projectionIndex.Item3;
+
+            var jsonElementVariable = Expression.Variable(
+                typeof(JsonElement));
+
+            var keyValuesParameter = Expression.Parameter(typeof(object[]));
+            var keyValues = new Expression[keyPropertyIndexMap.Count];
+
+            var i = 0;
+            foreach (var keyProperty in entityType.FindPrimaryKey()!.Properties.Where(p => p.IsForeignKey()))
+            {
+                var projection = _selectExpression.Projection[keyPropertyIndexMap[keyProperty]];
+
+                keyValues[i] = Expression.Convert(
+                    CreateGetValueExpression(
+                        _dataReaderParameter,
+                        keyPropertyIndexMap[keyProperty],
+                        IsNullableProjection(projection),
+                        projection.Expression.TypeMapping!,
+                        keyProperty.ClrType,
+                        keyProperty),
+                    typeof(object));
+
+                i++;
+            }
+
+            var keyValuesInitialize = Expression.NewArrayInit(typeof(object), keyValues);
+            var keyValuesAssignment = Expression.Assign(keyValuesParameter, keyValuesInitialize);
+
+            var jsonElementAssignment = Expression.Assign(
+                jsonElementVariable,
+                Expression.Call(
+                    null,
+                    _extractJsonElementMethod,
+                    _dataReaderParameter,
+                    Expression.Constant(jsonColumnProjectionIndex),
+                    Expression.Constant(additionalPath)));
+
+
+            return (jsonElementVariable, keyValuesParameter, jsonElementAssignment, keyValuesAssignment);
+        }
+
         protected override Expression VisitExtension(Expression extensionExpression)
         {
             switch (extensionExpression)
             {
                 case RelationalEntityShaperExpression entityShaperExpression:
                 {
+                    if (entityShaperExpression.EntityType.MappedToJson())
+                    {
+                        // json entity at the root
+                        var entityParameter = Expression.Parameter(entityShaperExpression.Type);
+                        _variables.Add(entityParameter);
+
+                        var (jsonElementVariable, keyValuesParameter, jsonElementAssignment, keyValuesAssignment) = PrepareForJsonShaping(
+                            (ProjectionBindingExpression)entityShaperExpression.ValueBufferExpression,
+                            entityShaperExpression.EntityType);
+
+                        _variables.Add(jsonElementVariable);
+                        _expressions.Add(jsonElementAssignment);
+
+                        _variables.Add(keyValuesParameter);
+                        _expressions.Add(keyValuesAssignment);
+
+                        var jsonMappedEntityCompilingExpressionVisitor = new JsonMappedEntityCompilingExpressionVisitor(
+                            keyValuesParameter,
+                            jsonElementVariable,
+                            entityParameter,
+                            navigation: null,//includeExpression.Navigation,
+                            _parentVisitor);
+
+                        var myResult = jsonMappedEntityCompilingExpressionVisitor.Visit(entityShaperExpression);
+                        var resultAssignment = Expression.Assign(entityParameter, myResult);
+
+                        _expressions.Add(resultAssignment);
+
+                        return entityParameter;
+                    }
+
                     if (!_variableShaperMapping.TryGetValue(entityShaperExpression.ValueBufferExpression, out var accessor))
                     {
                         var entityParameter = Expression.Parameter(entityShaperExpression.Type);
@@ -430,6 +530,40 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
                     }
 
                     return accessor;
+                }
+
+
+                case CollectionResultExpression collectionResultExpression
+                    when collectionResultExpression.Navigation is INavigation navigation
+                        && navigation.ForeignKey.IsOwnership && navigation.TargetEntityType.MappedToJson():
+                {
+                    // json entity collection at the root
+                    var entityCollectionParameter = Expression.Parameter(collectionResultExpression.Type);
+                    _variables.Add(entityCollectionParameter);
+
+                    var (jsonElementVariable, keyValuesParameter, jsonElementAssignment, keyValuesAssignment) = PrepareForJsonShaping(
+                        collectionResultExpression.ProjectionBindingExpression,
+                        navigation.TargetEntityType);
+
+                    _variables.Add(jsonElementVariable);
+                    _expressions.Add(jsonElementAssignment);
+
+                    _variables.Add(keyValuesParameter);
+                    _expressions.Add(keyValuesAssignment);
+
+                    var jsonMappedEntityCompilingExpressionVisitor = new JsonMappedEntityCompilingExpressionVisitor(
+                        keyValuesParameter,
+                        jsonElementVariable,
+                        entityCollectionParameter,
+                        navigation: null,//includeExpression.Navigation,
+                        _parentVisitor);
+
+                    var myResult = jsonMappedEntityCompilingExpressionVisitor.Visit(collectionResultExpression);
+                    var resultAssignment = Expression.Assign(entityCollectionParameter, myResult);
+
+                    _expressions.Add(resultAssignment);
+
+                    return entityCollectionParameter;
                 }
 
                 case ProjectionBindingExpression projectionBindingExpression
@@ -670,6 +804,34 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
                                         includingEntityType, relatedEntityType, navigation, inverseNavigation).Compile()),
                                 Expression.Constant(_isTracking)));
                     }
+                    else if (includeExpression.Navigation.TargetEntityType.MappedToJson())
+                    {
+                        var projectionBindingExpression = includeExpression.NavigationExpression is RelationalEntityShaperExpression rese
+                            ? (ProjectionBindingExpression)rese.ValueBufferExpression
+                            : ((CollectionResultExpression)includeExpression.NavigationExpression).ProjectionBindingExpression;
+
+                        var (jsonElementVariable, keyValuesParameter, jsonElementAssignment, keyValuesAssignment) = PrepareForJsonShaping(
+                            projectionBindingExpression,
+                            includeExpression.Navigation.TargetEntityType);
+
+                        _variables.Add(jsonElementVariable);
+                        _expressions.Add(jsonElementAssignment);
+
+                        _variables.Add(keyValuesParameter);
+                        _expressions.Add(keyValuesAssignment);
+
+                        var jsonMappedEntityCompilingExpressionVisitor = new JsonMappedEntityCompilingExpressionVisitor(
+                            keyValuesParameter,
+                            jsonElementVariable,
+                            entity,
+                            includeExpression.Navigation,
+                            _parentVisitor);
+
+                        var myResult = jsonMappedEntityCompilingExpressionVisitor.Visit(includeExpression.NavigationExpression);
+                        _expressions.Add(myResult);
+
+                        return entity;
+                    }
                     else
                     {
                         var navigationExpression = Visit(includeExpression.NavigationExpression);
@@ -882,6 +1044,37 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
             return base.VisitExtension(extensionExpression);
         }
 
+        public static object? ExtractJsonProperty(JsonElement element, string propertyName, Type returnType)
+        {
+            var jsonElementProperty = element.GetProperty(propertyName);
+            if (returnType == typeof(int))
+            {
+                return jsonElementProperty.GetInt32();
+            }
+            if (returnType == typeof(DateTime))
+            {
+                return jsonElementProperty.GetDateTime();
+            }
+            if (returnType == typeof(bool))
+            {
+                return jsonElementProperty.GetBoolean();
+            }
+            if (returnType == typeof(decimal))
+            {
+                return jsonElementProperty.GetDecimal();
+            }
+            if (returnType == typeof(string))
+            {
+                return jsonElementProperty.GetString();
+            }
+            else
+            {
+                // TODO: do for other types also
+                // later, just codegen the propery access for better perf
+                throw new InvalidOperationException("unsupported type");
+            }
+        }
+
         protected override Expression VisitMethodCall(MethodCallExpression methodCallExpression)
         {
             if (methodCallExpression.Method.IsGenericMethod
@@ -890,46 +1083,87 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
             {
                 var property = methodCallExpression.Arguments[2].GetConstantValue<IProperty?>();
                 var mappingParameter = (ParameterExpression)((MethodCallExpression)methodCallExpression.Arguments[0]).Object!;
-                int projectionIndex;
-                if (property == null)
+
+                if (property != null
+                    && property.DeclaringEntityType.MappedToJson())
                 {
-                    // This is trying to read the computed discriminator value
-                    var storedInfo = _entityTypeIdentifyingExpressionInfo[mappingParameter];
-                    if (storedInfo is string s)
+                    if (property.IsPrimaryKey())
                     {
-                        // If the value is fixed then there is single entity type and discriminator is not present in query
-                        // We just return the value as-is.
-                        return Expression.Constant(s);
+                        var keyBindings = _materializationContextBindings[mappingParameter];
+                        var keyProjectionIndex = keyBindings[property];
+
+                        var projection = _selectExpression.Projection[keyProjectionIndex];
+                        var nullable = IsNullableProjection(projection);
+
+                        Check.DebugAssert(
+                            !nullable || property != null || methodCallExpression.Type.IsNullableType(),
+                            "For nullable reads the return type must be null unless property is specified.");
+
+                        return CreateGetValueExpression(
+                            _dataReaderParameter,
+                            keyProjectionIndex,
+                            nullable,
+                            projection.Expression.TypeMapping!,
+                            methodCallExpression.Type,
+                            property);
                     }
 
-                    projectionIndex = (int)_entityTypeIdentifyingExpressionInfo[mappingParameter]
-                        + methodCallExpression.Arguments[1].GetConstantValue<int>();
+                    var jsonElementParameter = _materializationContextToJsonElementVariableMap[mappingParameter];
+
+                    // TODO: check mapping on the property to see the *actual* json property (could be different than the c-space property name)
+                    return
+                        Expression.Convert(
+                            Expression.Call(
+                            null,
+                            _extractJsonPropertyMethodInfo,
+                            jsonElementParameter,
+                            Expression.Constant(property.Name),
+                            Expression.Constant(property.ClrType)),
+                        property.ClrType);
                 }
                 else
                 {
-                    projectionIndex = _materializationContextBindings[mappingParameter][property];
+                    int projectionIndex;
+                    if (property == null)
+                    {
+                        // This is trying to read the computed discriminator value
+                        var storedInfo = _entityTypeIdentifyingExpressionInfo[mappingParameter];
+                        if (storedInfo is string s)
+                        {
+                            // If the value is fixed then there is single entity type and discriminator is not present in query
+                            // We just return the value as-is.
+                            return Expression.Constant(s);
+                        }
+
+                        projectionIndex = (int)_entityTypeIdentifyingExpressionInfo[mappingParameter]
+                            + methodCallExpression.Arguments[1].GetConstantValue<int>();
+                    }
+                    else
+                    {
+                        projectionIndex = _materializationContextBindings[mappingParameter][property];
+                    }
+
+                    var projection = _selectExpression.Projection[projectionIndex];
+                    var nullable = IsNullableProjection(projection);
+
+                    Check.DebugAssert(
+                        !nullable || property != null || methodCallExpression.Type.IsNullableType(),
+                        "For nullable reads the return type must be null unless property is specified.");
+
+                    return CreateGetValueExpression(
+                        _dataReaderParameter,
+                        projectionIndex,
+                        nullable,
+                        projection.Expression.TypeMapping!,
+                        methodCallExpression.Type,
+                        property);
                 }
-
-                var projection = _selectExpression.Projection[projectionIndex];
-                var nullable = IsNullableProjection(projection);
-
-                Check.DebugAssert(
-                    !nullable || property != null || methodCallExpression.Type.IsNullableType(),
-                    "For nullable reads the return type must be null unless property is specified.");
-
-                return CreateGetValueExpression(
-                    _dataReaderParameter,
-                    projectionIndex,
-                    nullable,
-                    projection.Expression.TypeMapping!,
-                    methodCallExpression.Type,
-                    property);
             }
 
             return base.VisitMethodCall(methodCallExpression);
         }
 
-        private static LambdaExpression GenerateFixup(
+        internal static LambdaExpression GenerateFixup(
             Type entityType,
             Type relatedEntityType,
             INavigationBase navigation,

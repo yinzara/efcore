@@ -120,6 +120,12 @@ public class StoreGenerationConvention : IPropertyAnnotationChangedConvention, I
         IConventionProperty property,
         in StoreObjectIdentifier storeObject)
     {
+        if (property.DeclaringEntityType.MappedToJson())
+        {
+            // maumar: skip this validation for now
+            return;
+        }
+
         if (property.TryGetDefaultValue(storeObject, out _))
         {
             if (property.GetDefaultValueSql(storeObject) != null)

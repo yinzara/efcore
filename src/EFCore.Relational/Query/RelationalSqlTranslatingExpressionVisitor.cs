@@ -1302,7 +1302,18 @@ public class RelationalSqlTranslatingExpressionVisitor : ExpressionVisitor
     {
         if (entityReferenceExpression.ParameterEntity != null)
         {
+            if (entityReferenceExpression.ParameterEntity.ValueBufferExpression is JsonProjectionExpression jsonProjectionExpression)
+            {
+                return jsonProjectionExpression.BindProperty(property);
+            }
+
             var valueBufferExpression = Visit(entityReferenceExpression.ParameterEntity.ValueBufferExpression);
+
+            //if (valueBufferExpression is JsonEntityExpression jsonEntityExpression)
+            //{
+            //    return jsonEntityExpression.BindProperty(property);
+            //}
+
 
             var entityProjectionExpression = (EntityProjectionExpression)valueBufferExpression;
             var propertyAccess = entityProjectionExpression.BindProperty(property);

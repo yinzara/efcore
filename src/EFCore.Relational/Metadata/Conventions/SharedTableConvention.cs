@@ -205,6 +205,13 @@ public class SharedTableConvention : IModelFinalizingConvention
                 continue;
             }
 
+            // maumar(second pass): check if still needed, now that we map the properties to individual columns within JsonColumn
+            // don't uniquify json columns
+            if (entityType.MappedToJson())
+            {
+                continue;
+            }
+
             if (!properties.TryGetValue(columnName, out var otherProperty))
             {
                 properties[columnName] = property;

@@ -113,7 +113,12 @@ public static class RelationalPropertyExtensions
             return (string?)columnAnnotation.Value;
         }
 
-        return GetDefaultColumnName(property, storeObject);
+        // GetDefaultColumnName returns non-nullable, so for json entity synthesized keys (which are not mapped) just make it return emtpty string and convert to null here
+        var result = GetDefaultColumnName(property, storeObject);
+
+        return result == string.Empty && property.DeclaringEntityType.MappedToJson()
+            ? null
+            : result;
     }
 
     /// <summary>
@@ -142,6 +147,15 @@ public static class RelationalPropertyExtensions
         if (sharedTablePrincipalConcurrencyProperty != null)
         {
             return sharedTablePrincipalConcurrencyProperty.GetColumnName(storeObject)!;
+        }
+
+        if (property.DeclaringEntityType.MappedToJson())
+        {
+            // only PKs that are unhandled by this point should be ordinal keys - not mapped to anything
+            // TODO: or should we just return "Id" as the default name here?
+            return property.IsPrimaryKey()
+                ? string.Empty
+                : property.GetDefaultColumnBaseName();
         }
 
         var entityType = property.DeclaringEntityType;
@@ -1323,6 +1337,14 @@ public static class RelationalPropertyExtensions
         var column = property.GetColumnName(storeObject);
         if (column == null)
         {
+            // for entities mapped to json, if column name was not returned the property is either contained in json,
+            // or, in case of collection, a synthesized key based on ordinal
+            // so just skip this, there is no shared objct root to speak of
+            if (property.DeclaringEntityType.MappedToJson())
+            {
+                return null;
+            }
+
             throw new InvalidOperationException(
                 RelationalStrings.PropertyNotMappedToTable(
                     property.Name, property.DeclaringEntityType.DisplayName(), storeObject.DisplayName()));
@@ -1379,7 +1401,25 @@ public static class RelationalPropertyExtensions
                 break;
             }
 
-            principalProperty = linkingRelationship.PrincipalKey.Properties[linkingRelationship.Properties.IndexOf(principalProperty)];
+            if (property.DeclaringEntityType.MappedToJson())
+            {
+                // for json collection entities don't match the ordinal key
+                var index = linkingRelationship.Properties.IndexOf(principalProperty);
+                if (index == -1)
+                {
+                    Debug.Assert(
+                        property.IsJsonMappedEntityCollectionOrdinalKeyProperty(),
+                        "Mismatch should only happen for ordianl key in the json-mapped owned collection entity.");
+
+                    return null;
+                }
+
+                principalProperty = linkingRelationship.PrincipalKey.Properties[index];
+            }
+            else
+            {
+                principalProperty = linkingRelationship.PrincipalKey.Properties[linkingRelationship.Properties.IndexOf(principalProperty)];
+            }
         }
 
         return principalProperty == property ? null : principalProperty;
@@ -1668,4 +1708,10 @@ public static class RelationalPropertyExtensions
 
         throw new InvalidOperationException(message, exception);
     }
+
+    // TODO: improve this logic or just remove it altogether (only used in debug checks atm)
+    internal static bool IsJsonMappedEntityCollectionOrdinalKeyProperty(this IReadOnlyProperty property)
+        => property.Name.EndsWith("Id", StringComparison.Ordinal)
+        && property.ClrType == typeof(int)
+        && property.DeclaringEntityType.MappedToJson();
 }
