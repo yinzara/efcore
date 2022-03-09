@@ -234,12 +234,22 @@ public class SqlServerAnnotationProvider : RelationalAnnotationProvider
                 string.Format(CultureInfo.InvariantCulture, "{0}, {1}", seed ?? 1, increment ?? 1));
         }
 
+
+        // maumar: json column doesn't have property mappings (should it?)
+
         // Model validation ensures that these facets are the same on all mapped properties
-        var property = column.PropertyMappings.First().Property;
-        if (property.IsSparse() is bool isSparse)
+        var property = column.PropertyMappings.FirstOrDefault()?.Property;
+        if (property?.IsSparse() is bool isSparse)
         {
             yield return new Annotation(SqlServerAnnotationNames.Sparse, isSparse);
         }
+
+        //// Model validation ensures that these facets are the same on all mapped properties
+        //var property = column.PropertyMappings.First().Property;
+        //if (property.IsSparse() is bool isSparse)
+        //{
+        //    yield return new Annotation(SqlServerAnnotationNames.Sparse, isSparse);
+        //}
 
         var entityType = column.Table.EntityTypeMappings.First().EntityType;
         if (entityType.IsTemporal() && designTime)

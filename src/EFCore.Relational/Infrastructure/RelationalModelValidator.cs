@@ -310,6 +310,12 @@ public class RelationalModelValidator : ModelValidator
                     continue;
                 }
 
+                // no need to check json-mapped types (or is there, just different?)
+                if (entityType.MappedToJson())
+                {
+                    continue;
+                }
+
                 var (principalEntityTypes, optional) = GetPrincipalEntityTypes(entityType);
                 if (!optional)
                 {
@@ -401,11 +407,20 @@ public class RelationalModelValidator : ModelValidator
         }
 
         var storeObject = StoreObjectIdentifier.Table(tableName, schema);
-        var unvalidatedTypes = new HashSet<IEntityType>(mappedTypes);
+        // TODO: add proper validation for json-mapped types instead of filtering them out
+        var unvalidatedTypes = new HashSet<IEntityType>(mappedTypes.Where(x => string.IsNullOrEmpty(x.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string)));
         IEntityType? root = null;
         foreach (var mappedType in mappedTypes)
         {
             if (mappedType.BaseType != null && unvalidatedTypes.Contains(mappedType.BaseType))
+            {
+                continue;
+            }
+
+            // HACK (do it properly, i.e. add some validation to this scenario, not everything should be allowed presumably)
+            // owned types mapped to json can share table with parent even in 1-many scenario
+            var mapToJsonColumnName = mappedType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string;
+            if (mapToJsonColumnName != null)
             {
                 continue;
             }
@@ -713,6 +728,13 @@ public class RelationalModelValidator : ModelValidator
             foreach (var property in entityType.GetDeclaredProperties())
             {
                 var columnName = property.GetColumnName(storeObject)!;
+
+                // maumar: skip this validation, there are no columns to speak - either property is mapped to json column on is part of synthesized key
+                if (entityType.MappedToJson() && columnName == null)
+                {
+                    continue;
+                }
+
                 missingConcurrencyTokens?.Remove(columnName);
                 if (!propertyMappings.TryGetValue(columnName, out var duplicateProperty))
                 {

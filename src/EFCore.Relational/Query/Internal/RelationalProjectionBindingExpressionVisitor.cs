@@ -147,6 +147,24 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
                             materializeCollectionNavigationExpression.Navigation,
                             materializeCollectionNavigationExpression.Navigation.ClrType.GetSequenceType());
 
+                    case JsonCollectionResultExpression jsonCollectionResultExpression:
+                        var projectionBinding = AddClientProjection(jsonCollectionResultExpression.JsonProjectionExpression, typeof(ValueBuffer));
+
+                        // IDK what to do here >.<
+                        return new CollectionResultExpression(
+                            projectionBinding,
+                            jsonCollectionResultExpression.Navigation,
+                            jsonCollectionResultExpression.Navigation.ClrType.GetSequenceType());
+
+                        //return AddClientProjection(jsonCollectionResultExpression, typeof(ValueBuffer));
+                        //_clientProjections!.Add(jsonCollectionResultExpression);
+
+                        //// IDK what to do here >.<
+                        //return new CollectionResultExpression(
+                        //    new ProjectionBindingExpression(_selectExpression, _clientProjections.Count - 1, expression.Type),
+                        //    jsonCollectionResultExpression.Navigation,
+                        //    jsonCollectionResultExpression.Navigation.ClrType.GetSequenceType());
+
                     case MethodCallExpression methodCallExpression:
                         if (methodCallExpression.Method.IsGenericMethod
                             && methodCallExpression.Method.DeclaringType == typeof(Enumerable)
@@ -270,6 +288,37 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
             {
                 // TODO: Make this easier to understand some day.
                 EntityProjectionExpression entityProjectionExpression;
+
+                if (entityShaperExpression.ValueBufferExpression is JsonProjectionExpression jsonProjectionExpression)
+                {
+                    if (_indexBasedBinding)
+                    {
+                        var projectionBinding = AddClientProjection(jsonProjectionExpression, typeof(ValueBuffer));
+
+                        return entityShaperExpression.Update(projectionBinding);
+                    }
+
+                    _projectionMapping[_projectionMembers.Peek()] = jsonProjectionExpression;
+
+                    return entityShaperExpression.Update(
+                        new ProjectionBindingExpression(_selectExpression, _projectionMembers.Peek(), typeof(ValueBuffer)));
+                }
+
+                //if (entityShaperExpression.ValueBufferExpression is JsonEntityExpression jsonEntityExpression)
+                //{
+                //    if (_indexBasedBinding)
+                //    {
+                //        var foo = AddClientProjection(jsonEntityExpression, typeof(ValueBuffer));
+ 
+                //        return entityShaperExpression.Update(foo);
+                //    }
+
+                //    _projectionMapping[_projectionMembers.Peek()] = jsonEntityExpression;
+
+                //    return entityShaperExpression.Update(
+                //        new ProjectionBindingExpression(_selectExpression, _projectionMembers.Peek(), typeof(ValueBuffer)));
+                //}
+
                 if (entityShaperExpression.ValueBufferExpression is ProjectionBindingExpression projectionBindingExpression)
                 {
                     if (projectionBindingExpression.ProjectionMember == null
@@ -306,8 +355,41 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
                     new ProjectionBindingExpression(_selectExpression, _projectionMembers.Peek(), typeof(ValueBuffer)));
             }
 
-            case IncludeExpression:
-                return _indexBasedBinding ? base.VisitExtension(extensionExpression) : QueryCompilationContext.NotTranslatedExpression;
+            case IncludeExpression includeExpression:
+                if (_indexBasedBinding)
+                {
+                    if (includeExpression.NavigationExpression is MaterializeCollectionNavigationExpression mcne
+                        && mcne.Navigation.TargetEntityType.MappedToJson()
+                        && mcne.Subquery is MethodCallExpression methodCallSubquery
+                        && methodCallSubquery.Method.IsGenericMethod)
+                    {
+                        // strip .Select(x => x) and .AsQueryable() from the JsonCollectionResultExpression
+                        if (methodCallSubquery.Method.GetGenericMethodDefinition() == QueryableMethods.Select
+                            && methodCallSubquery.Arguments[0] is MethodCallExpression selectSourceMethod
+                            && selectSourceMethod.Method.IsGenericMethod
+                            && methodCallSubquery.Arguments[1].UnwrapLambdaFromQuote() is LambdaExpression selectLambda
+                            // TODO check the identity projection
+                            )
+                        {
+                            methodCallSubquery = selectSourceMethod;
+                        }
+
+                        if (methodCallSubquery.Method.IsGenericMethod
+                            && methodCallSubquery.Method.GetGenericMethodDefinition() == QueryableMethods.AsQueryable
+                            && methodCallSubquery.Arguments[0] is JsonCollectionResultExpression jcre)
+                        {
+                            var updated = includeExpression.Update(includeExpression.EntityExpression, jcre);
+
+                            return base.VisitExtension(updated);
+                        }
+                    }
+
+                    return base.VisitExtension(extensionExpression);
+                }
+                else
+                {
+                    return QueryCompilationContext.NotTranslatedExpression;
+                }
 
             case CollectionResultExpression collectionResultExpression:
             {

@@ -67,6 +67,15 @@ public static class RelationalEntityTypeExtensions
             return ownership.PrincipalEntityType.GetTableName();
         }
 
+        // TODO: combine with the above
+        // owned collection entity mapped to json is also mapped to the parent table
+        var mapToJsonColumnName = entityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string;
+        if (ownership != null
+            && !string.IsNullOrEmpty(mapToJsonColumnName))
+        {
+            return ownership.PrincipalEntityType.GetTableName();
+        }
+
         var name = entityType.ShortName();
         if (entityType.HasSharedClrType
             && ownership != null
@@ -846,12 +855,19 @@ public static class RelationalEntityTypeExtensions
 
         foreach (var foreignKey in entityType.GetForeignKeys())
         {
+            var mappedToJson = !string.IsNullOrEmpty(entityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string);
+
             var principalEntityType = foreignKey.PrincipalEntityType;
+
+            var pkPropertiesToMatch = mappedToJson
+                ? primaryKey.Properties.Take(foreignKey.Properties.Count).ToList().AsReadOnly()
+                : primaryKey.Properties;
+
             if (!foreignKey.PrincipalKey.IsPrimaryKey()
                 || principalEntityType == foreignKey.DeclaringEntityType
-                || !foreignKey.IsUnique
+                || (!foreignKey.IsUnique && !mappedToJson)
 #pragma warning disable EF1001 // Internal EF Core API usage.
-                || !PropertyListComparer.Instance.Equals(foreignKey.Properties, primaryKey.Properties))
+                || !PropertyListComparer.Instance.Equals(foreignKey.Properties, pkPropertiesToMatch))
 #pragma warning restore EF1001 // Internal EF Core API usage.
             {
                 continue;
@@ -1263,4 +1279,16 @@ public static class RelationalEntityTypeExtensions
         => Trigger.GetDeclaredTriggers(entityType).Cast<ITrigger>();
 
     #endregion Trigger
+
+    /// <summary>
+    ///     TODO
+    /// </summary>
+    public static bool MappedToJson(this IConventionEntityType entityType)
+        => !string.IsNullOrEmpty(entityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string);
+
+    /// <summary>
+    ///     TODO
+    /// </summary>
+    public static bool MappedToJson(this IReadOnlyEntityType entityType)
+        => !string.IsNullOrEmpty(entityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string);
 }

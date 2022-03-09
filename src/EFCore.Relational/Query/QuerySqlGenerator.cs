@@ -1142,4 +1142,16 @@ public class QuerySqlGenerator : SqlExpressionVisitor
 
         return unionExpression;
     }
+
+    /// <inheritdoc />
+    protected override Expression VisitJsonPathExpression(JsonPathExpression jsonPathExpression)
+        => jsonPathExpression;
+
+    ///// <inheritdoc />
+    //protected override Expression VisitJsonEntityExpression(JsonEntityExpression jsonEntityExpression)
+    //    => jsonEntityExpression;
+
+    ///// <inheritdoc />
+    //protected override Expression VisitJsonMappedPropertyExpression(JsonMappedPropertyExpression jsonMappedPropertyExpression)
+    //    => jsonMappedPropertyExpression;
 }

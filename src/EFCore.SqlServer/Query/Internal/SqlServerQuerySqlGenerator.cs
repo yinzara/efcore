@@ -1,6 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.SqlServer.Metadata.Internal;
 
@@ -168,6 +169,91 @@ public class SqlServerQuerySqlGenerator : QuerySqlGenerator
 
         return base.VisitExtension(extensionExpression);
     }
+
+    /// <inheritdoc />
+    protected override Expression VisitJsonPathExpression(JsonPathExpression jsonPathExpression)
+    {
+        // TODO: do this properly, i.e. using a flag or something?
+        if (jsonPathExpression.Type == typeof(JsonElement))
+        {
+            Sql.Append("JSON_QUERY(");
+        }
+        else
+        {
+            Sql.Append("JSON_VALUE(");
+        }
+
+        Visit(jsonPathExpression.JsonColumn);
+        Sql.Append(",");
+
+        var jsonPath = string.Join(".", jsonPathExpression.JsonPath);
+        if (!string.IsNullOrEmpty(jsonPath))
+        {
+            jsonPath = "$." + jsonPath;
+        }
+        else
+        {
+            jsonPath = "$";
+        }
+
+        Sql.Append("'" + jsonPath + "'");
+        Sql.Append(")");
+
+        return base.VisitJsonPathExpression(jsonPathExpression);
+    }
+
+    ///// <inheritdoc />
+    //protected override Expression VisitJsonEntityExpression(JsonEntityExpression jsonEntityExpression)
+    //{
+    //    Sql.Append("JSON_QUERY(");
+    //    Visit(jsonEntityExpression.JsonColumn);
+    //    Sql.Append(",");
+
+    //    var jsonPath = string.Join(".", jsonEntityExpression.GetPath());
+    //    if (!string.IsNullOrEmpty(jsonPath))
+    //    {
+    //        jsonPath = "$." + jsonPath;
+    //    }
+    //    else
+    //    {
+    //        jsonPath = "$";
+    //    }
+
+    //    Sql.Append("'" + jsonPath + "'");
+    //    Sql.Append(")");
+
+    //    return base.VisitJsonEntityExpression(jsonEntityExpression);
+    //}
+
+    ///// <inheritdoc />
+    //protected override Expression VisitJsonMappedPropertyExpression(JsonMappedPropertyExpression jsonMappedPropertyExpression)
+    //{
+    //    Sql.Append("CAST(");
+    //    Sql.Append("JSON_VALUE(");
+    //    Visit(jsonMappedPropertyExpression.JsonColumn);
+    //    Sql.Append(",");
+
+
+    //    var jsonPath = string.Join(".", jsonMappedPropertyExpression.GetPath());
+    //    if (!string.IsNullOrEmpty(jsonPath))
+    //    {
+    //        jsonPath = "$." + jsonPath;
+    //    }
+    //    else
+    //    {
+    //        jsonPath = "$";
+    //    }
+
+    //    Sql.Append("'" + jsonPath + "'");
+    //    Sql.Append(")");
+
+    //    Sql.Append(" AS ");
+    //    Sql.Append(jsonMappedPropertyExpression.TypeMapping!.StoreType);
+    //    Sql.Append(")");
+
+    //    return base.VisitJsonMappedPropertyExpression(jsonMappedPropertyExpression);
+    //}
+
 
     /// <inheritdoc />
     protected override void CheckComposableSqlTrimmed(ReadOnlySpan<char> sql)

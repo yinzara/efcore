@@ -33,12 +33,25 @@ public static class RelationalPropertyExtensions
         foreach (var property in properties)
         {
             var columnName = property.GetColumnName(storeObject);
-            if (columnName == null)
-            {
-                return null;
-            }
 
-            propertyNames.Add(columnName);
+            // maumar: entity mapped to json can have part of it's key mapped to a column (i.e. part that is FK pointing to the PK of the owner) and part that is not (i.e. synthesized key property based on ordinal in the collection)
+            // TODO: this method is also used on indexes make sure its ok to do this!!!
+            if (property.DeclaringEntityType.MappedToJson())
+            {
+                if (columnName != null)
+                {
+                    propertyNames.Add(columnName);
+                }
+            }
+            else
+            {
+                if (columnName == null)
+                {
+                    return null;
+                }
+
+                propertyNames.Add(columnName);
+            }
         }
 
         return propertyNames;

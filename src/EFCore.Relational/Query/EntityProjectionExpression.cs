@@ -17,23 +17,29 @@ namespace Microsoft.EntityFrameworkCore.Query;
 /// </summary>
 public class EntityProjectionExpression : Expression
 {
-    private readonly IReadOnlyDictionary<IProperty, ColumnExpression> _propertyExpressionMap;
+    private readonly IReadOnlyDictionary<IPropertyBase, SqlExpression> _propertyExpressionMap;
     private readonly Dictionary<INavigation, EntityShaperExpression> _ownedNavigationMap = new();
+    private readonly Dictionary<INavigation, ShapedJsonCollectionExpression> _ownedJsonCollectionNavigationMap = new();
+
+
+    //private readonly IReadOnlyDictionary<IPropertyBase, SqlExpression> _jsonPropertyPathMap;
 
     /// <summary>
     ///     Creates a new instance of the <see cref="EntityProjectionExpression" /> class.
     /// </summary>
     /// <param name="entityType">The entity type to shape.</param>
-    /// <param name="propertyExpressionMap">A dictionary of column expressions corresponding to properties of the entity type.</param>
+    /// <param name="propertyExpressionMap">A dictionary of column expressions corresponding to properties (or in some cases navigations) of the entity type.</param>
     /// <param name="discriminatorExpression">A <see cref="SqlExpression" /> to generate discriminator for each concrete entity type in hierarchy.</param>
     public EntityProjectionExpression(
         IEntityType entityType,
-        IReadOnlyDictionary<IProperty, ColumnExpression> propertyExpressionMap,
+        IReadOnlyDictionary<IPropertyBase, SqlExpression> propertyExpressionMap,
         SqlExpression? discriminatorExpression = null)
     {
         EntityType = entityType;
         _propertyExpressionMap = propertyExpressionMap;
         DiscriminatorExpression = discriminatorExpression;
+
+        //_jsonPropertyPathMap = new Dictionary<IPropertyBase, SqlExpression>();
     }
 
     /// <summary>
@@ -45,6 +51,11 @@ public class EntityProjectionExpression : Expression
     ///     A <see cref="SqlExpression" /> to generate discriminator for entity type.
     /// </summary>
     public virtual SqlExpression? DiscriminatorExpression { get; }
+
+    /// <summary>
+    ///     TODO
+    /// </summary>
+    public virtual ColumnExpression? JsonColumn { get; }
 
     /// <inheritdoc />
     public sealed override ExpressionType NodeType
@@ -58,7 +69,7 @@ public class EntityProjectionExpression : Expression
     protected override Expression VisitChildren(ExpressionVisitor visitor)
     {
         var changed = false;
-        var propertyExpressionMap = new Dictionary<IProperty, ColumnExpression>();
+        var propertyExpressionMap = new Dictionary<IPropertyBase, SqlExpression>();
         foreach (var (property, columnExpression) in _propertyExpressionMap)
         {
             var newExpression = (ColumnExpression)visitor.Visit(columnExpression);
@@ -81,10 +92,12 @@ public class EntityProjectionExpression : Expression
     /// <returns>A new entity projection expression which can project nullable entity.</returns>
     public virtual EntityProjectionExpression MakeNullable()
     {
-        var propertyExpressionMap = new Dictionary<IProperty, ColumnExpression>();
-        foreach (var (property, columnExpression) in _propertyExpressionMap)
+        var propertyExpressionMap = new Dictionary<IPropertyBase, SqlExpression>();
+        foreach (var (property, sqlExpression) in _propertyExpressionMap)
         {
-            propertyExpressionMap[property] = columnExpression.MakeNullable();
+            // maumar: fix this for json (i.e. when the sql expression is not a column
+            var nullable = (sqlExpression as ColumnExpression)?.MakeNullable() ?? sqlExpression;
+            propertyExpressionMap[property] = nullable;
         }
 
         // We don't need to process DiscriminatorExpression because they are already nullable
@@ -105,11 +118,15 @@ public class EntityProjectionExpression : Expression
                     derivedType.DisplayName(), EntityType.DisplayName()));
         }
 
-        var propertyExpressionMap = new Dictionary<IProperty, ColumnExpression>();
+        var propertyExpressionMap = new Dictionary<IPropertyBase, SqlExpression>();
         foreach (var (property, columnExpression) in _propertyExpressionMap)
         {
-            if (derivedType.IsAssignableFrom(property.DeclaringEntityType)
-                || property.DeclaringEntityType.IsAssignableFrom(derivedType))
+            // maumar:
+            // TODO: any other possibilities here?
+            var declaringEntityType = (property as IProperty)?.DeclaringEntityType ?? ((INavigation)property).DeclaringEntityType;
+
+            if (derivedType.IsAssignableFrom(declaringEntityType)
+                || declaringEntityType.IsAssignableFrom(derivedType))
             {
                 propertyExpressionMap[property] = columnExpression;
             }
@@ -134,7 +151,7 @@ public class EntityProjectionExpression : Expression
     /// </summary>
     /// <param name="property">A property to bind.</param>
     /// <returns>A column which is a SQL representation of the property.</returns>
-    public virtual ColumnExpression BindProperty(IProperty property)
+    public virtual ColumnExpression BindKeyProperty(IProperty property)
     {
         if (!EntityType.IsAssignableFrom(property.DeclaringEntityType)
             && !property.DeclaringEntityType.IsAssignableFrom(EntityType))
@@ -142,6 +159,26 @@ public class EntityProjectionExpression : Expression
             throw new InvalidOperationException(
                 RelationalStrings.UnableToBindMemberToEntityProjection("property", property.Name, EntityType.DisplayName()));
         }
+
+        return (ColumnExpression)_propertyExpressionMap[property];
+    }
+
+    /// <summary>
+    ///     TODO
+    /// </summary>
+    public virtual SqlExpression BindProperty2(IProperty property)
+    {
+        if (!EntityType.IsAssignableFrom(property.DeclaringEntityType)
+            && !property.DeclaringEntityType.IsAssignableFrom(EntityType))
+        {
+            throw new InvalidOperationException(
+                RelationalStrings.UnableToBindMemberToEntityProjection("property", property.Name, EntityType.DisplayName()));
+        }
+
+        //if (_jsonPropertyPathMap.ContainsKey(property))
+        //{
+        //    return JsonColumn!;
+        //}
 
         return _propertyExpressionMap[property];
     }
@@ -161,6 +198,21 @@ public class EntityProjectionExpression : Expression
         }
 
         _ownedNavigationMap[navigation] = entityShaper;
+    }
+
+    /// <summary>
+    ///     TODO
+    /// </summary>
+    public virtual void AddJsonCollectionNavigationBinding(INavigation navigation, ShapedJsonCollectionExpression shapedJsonCollectionExpression)
+    {
+        if (!EntityType.IsAssignableFrom(navigation.DeclaringEntityType)
+            && !navigation.DeclaringEntityType.IsAssignableFrom(EntityType))
+        {
+            throw new InvalidOperationException(
+                RelationalStrings.UnableToBindMemberToEntityProjection("navigation", navigation.Name, EntityType.DisplayName()));
+        }
+
+        _ownedJsonCollectionNavigationMap[navigation] = shapedJsonCollectionExpression;
     }
 
     /// <summary>
