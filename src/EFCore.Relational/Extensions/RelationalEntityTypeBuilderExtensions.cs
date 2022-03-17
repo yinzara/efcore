@@ -1897,4 +1897,62 @@ public static class RelationalEntityTypeBuilderExtensions
             tableName,
             tableSchema,
             fromDataAnnotation ? ConfigurationSource.DataAnnotation : ConfigurationSource.Convention);
+
+    /// <summary>
+    /// TODO
+    /// </summary>
+    public static EntityTypeBuilder<TEntity> MapToJson<TEntity, TRelatedEntity>(
+        this EntityTypeBuilder<TEntity> entityTypeBuilder,
+        Expression<Func<TEntity, TRelatedEntity?>> navigationExpression,
+        string jsonColumnName)
+        where TEntity : class
+        where TRelatedEntity : class
+    {
+        var ownedNavigationBuilder = entityTypeBuilder.OwnsOne(navigationExpression);
+        ownedNavigationBuilder.OwnedEntityType.SetAnnotation(RelationalAnnotationNames.MapToJson, true);
+        ownedNavigationBuilder.OwnedEntityType.SetAnnotation(RelationalAnnotationNames.JsonColumnName, jsonColumnName);
+
+        return entityTypeBuilder;
+    }
+
+    /// <summary>
+    /// TODO
+    /// </summary>
+    public static EntityTypeBuilder<TEntity> MapToJson<TEntity, TRelatedEntity>(
+        this EntityTypeBuilder<TEntity> entityTypeBuilder,
+        Expression<Func<TEntity, IEnumerable<TRelatedEntity>?>> navigationExpression,
+        string jsonColumnName)
+        where TEntity : class
+        where TRelatedEntity : class
+    {
+        var ownedNavigationBuilder = entityTypeBuilder.OwnsMany(navigationExpression);
+        ownedNavigationBuilder.OwnedEntityType.SetAnnotation(RelationalAnnotationNames.MapToJson, true);
+        ownedNavigationBuilder.OwnedEntityType.SetAnnotation(RelationalAnnotationNames.JsonColumnName, jsonColumnName);
+
+        return entityTypeBuilder;
+    }
+
+    //public static OwnedNavigationBuilder<TEntity, TRelatedEntity> MapOneToJson<TEntity, TRelatedEntity>(
+    //    this EntityTypeBuilder<TEntity> entityTypeBuilder,
+    //    string navigationName)
+    //    where TEntity : class
+    //    where TRelatedEntity : class
+    //{
+    //    var result = entityTypeBuilder.OwnsOne<TRelatedEntity>(navigationName);
+    //    result.Metadata.SetAnnotation(RelationalAnnotationNames.MapToJson, true);
+
+    //    return result;
+    //}
+
+    ///// <summary>
+    ///// TODO
+    ///// </summary>
+    //public static OwnedNavigationBuilder MapToJson(
+    //    this OwnedNavigationBuilder ownedNavigationBuilder,
+    //    string jsonColumnName)
+    //{
+    //    ownedNavigationBuilder.Metadata.SetAnnotation(RelationalAnnotationNames.MapToJson, jsonColumnName);
+
+    //    return ownedNavigationBuilder;
+    //}
 }
