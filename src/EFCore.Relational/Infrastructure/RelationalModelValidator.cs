@@ -408,7 +408,7 @@ public class RelationalModelValidator : ModelValidator
             }
 
             var primaryKey = mappedType.FindPrimaryKey();
-            if (primaryKey != null
+                if (primaryKey != null
                 && (mappedType.FindForeignKeys(primaryKey.Properties)
                     .FirstOrDefault(
                         fk => fk.PrincipalKey.IsPrimaryKey()

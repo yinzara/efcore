@@ -78,6 +78,11 @@ public abstract class RelationalConventionSetBuilder : ProviderConventionSetBuil
         conventionSet.EntityTypeBaseTypeChangedConventions.Add(tableNameFromDbSetConvention);
         conventionSet.EntityTypeBaseTypeChangedConventions.Add(checkConstraintConvention);
 
+        var mapToJsonConvention = new RelationalMapToJsonConvention();
+        conventionSet.EntityTypeAnnotationChangedConventions.Add(mapToJsonConvention);
+        //var mapToJsonConvention = new MapToJsonConvention();
+        //conventionSet.EntityTypeAnnotationChangedConventions.Add(mapToJsonConvention);
+
         ReplaceConvention(conventionSet.ForeignKeyPropertiesChangedConventions, valueGenerationConvention);
 
         ReplaceConvention(conventionSet.ForeignKeyOwnershipChangedConventions, valueGenerationConvention);
