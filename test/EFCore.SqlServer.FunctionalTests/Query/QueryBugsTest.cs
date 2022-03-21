@@ -10345,13 +10345,16 @@ WHERE [e].[TimeSpan] = @__parameter_0");
     #endregion
 
 
+    [ConditionalFact]
+    public void Sikson()
+    {
+        using var ctx = new MyContext();
+        ctx.Database.EnsureDeleted();
+        ctx.Database.EnsureCreated();
 
+        var query = ctx.Entities.ToList();
+    }
 
-
-
-
-    namespace JsonSandbox
-{
     public class MyContext : DbContext
     {
         public DbSet<Entity> Entities { get; set; }
@@ -10400,71 +10403,6 @@ WHERE [e].[TimeSpan] = @__parameter_0");
         public string SomeProp { get; set; }
         public OwnedReference Parent { get; set; }
     }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 protected override string StoreName
         => "QueryBugsTest";
