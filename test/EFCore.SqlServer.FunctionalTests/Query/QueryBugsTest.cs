@@ -10349,7 +10349,129 @@ WHERE [e].[TimeSpan] = @__parameter_0");
 
     #endregion
 
-    protected override string StoreName
+
+
+
+
+
+
+    namespace JsonSandbox
+{
+    public class MyContext : DbContext
+    {
+        public DbSet<Entity> Entities { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Entity>().OwnsOne(x => x.Reference, b =>
+            {
+                b.WithOwner(x => x.Owner);
+                b.OwnsOne(x => x.Nested).WithOwner(x => x.Parent);
+            });
+
+            modelBuilder.Entity<Entity>().MapToJson(x => x.Reference, "json_reference");
+        }
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            optionsBuilder.UseSqlServer(@"Server=(localdb)\mssqllocaldb;Database=JsonSandbox;Trusted_Connection=True;MultipleActiveResultSets=true");
+        }
+    }
+
+    public class Entity
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public OwnedReference Reference { get; set; }
+    }
+
+    public class SomeOtherEntity
+    {
+        public int Id { get; set; }
+    }
+
+    public class OwnedReference
+    {
+        public decimal Discount { get; set; }
+        public Entity Owner { get; set; }
+        public NestedReference Nested { get; set; }
+
+        public SomeOtherEntity Entity { get; set; }
+
+    }
+
+    public class NestedReference
+    {
+        public string SomeProp { get; set; }
+        public OwnedReference Parent { get; set; }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+protected override string StoreName
         => "QueryBugsTest";
 
     protected TestSqlLoggerFactory TestSqlLoggerFactory

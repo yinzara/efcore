@@ -341,6 +341,33 @@ public class RelationalModel : Annotatable, IRelationalModel
                 {
                     IsSplitEntityTypePrincipal = true
                 };
+
+                // TODO: convert to runtime annotation
+                var mapToJsonColumnName = entityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string;
+                //var mapToJsonColumnName = entityType.FindRuntimeAnnotationValue(RelationalAnnotationNames.MapToJsonColumnName) as string;
+                if (!string.IsNullOrEmpty(mapToJsonColumnName))
+                {
+                    var jsonColumn = (Column?)table.FindColumn(mapToJsonColumnName);
+                    if (jsonColumn == null)
+                    {
+                        // TODO: how to get the mapping for this column properly?
+                        jsonColumn = new Column(mapToJsonColumnName, "nvarchar(max)", table);
+                        jsonColumn.IsNullable = true;
+                        table.Columns.Add(mapToJsonColumnName, jsonColumn);
+                    }
+
+                    // TODO: is this correct? should all properties be mapped to the json column?
+                    foreach (var property in entityType.GetProperties())
+                    {
+                        var jsonColumnMapping = new ColumnMapping(property, jsonColumn, tableMapping);
+                        tableMapping.ColumnMappings.Add(jsonColumnMapping);
+                        jsonColumn.PropertyMappings.Add(jsonColumnMapping);
+                    }
+
+                    // TODO: what to do with table mappings?
+                    break;
+                }
+
                 foreach (var property in mappedType.GetProperties())
                 {
                     var columnName = property.GetColumnName(mappedTable);

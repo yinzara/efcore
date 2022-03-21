@@ -229,13 +229,13 @@ public static class RelationalAnnotationNames
     /// </summary>
     public const string ModelDependencies = Prefix + "ModelDependencies";
 
-    /// <summary>
-    ///     The name for the annotation indicating that the property is mapped to JSON column.
-    /// </summary>
-    public const string MapToJson = Prefix + "MapToJson";
+    ///// <summary>
+    /////     The name for the annotation indicating that the property is mapped to JSON column.
+    ///// </summary>
+    //public const string MapToJson = Prefix + "MapToJson";
 
     /// <summary>
     ///     THe name for the annotation specifying JSON column name to which the object is mapped.
     /// </summary>
-    public const string JsonColumnName = Prefix + "JsonColumnName";
+    public const string MapToJsonColumnName = Prefix + "MapToJsonColumnName";
 }

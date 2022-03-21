@@ -703,6 +703,10 @@ public class MigrationsModelDiffer : IMigrationsModelDiffer
     {
         var columns = table.Columns.ToHashSet();
         var sortedColumns = new List<IColumn>(columns.Count);
+
+
+        var sikson = GetSortedProperties(GetMainType(table).GetRootType(), table).ToList();
+
         foreach (var property in GetSortedProperties(GetMainType(table).GetRootType(), table))
         {
             var column = table.FindColumn(property)!;
@@ -712,7 +716,12 @@ public class MigrationsModelDiffer : IMigrationsModelDiffer
             }
         }
 
-        Check.DebugAssert(columns.Count == 0, "columns is not empty");
+        // TODO: how to do this properly?
+        Check.DebugAssert(
+            columns.Count(x => x.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value != null) == 0,
+            "columns is not empty");
+
+        //Check.DebugAssert(columns.Count == 0, "columns is not empty");
 
         return sortedColumns.Where(c => c.Order.HasValue).OrderBy(c => c.Order)
             .Concat(sortedColumns.Where(c => !c.Order.HasValue))
