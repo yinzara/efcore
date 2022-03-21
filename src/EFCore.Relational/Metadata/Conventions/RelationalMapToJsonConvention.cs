@@ -18,18 +18,40 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             IConventionAnnotation? oldAnnotation,
             IConventionContext<IConventionAnnotation> context)
         {
-            if (name == RelationalAnnotationNames.MapToJson)
+            //if (name == RelationalAnnotationNames.MapToJson)
+            //{
+            //    if (annotation?.Value as bool? == true)
+            //    {
+
+
+
+
+            //    }
+            //    else
+            //    {
+            //    }
+            //}
+
+            if (name == RelationalAnnotationNames.MapToJsonColumnName)
             {
-                if (annotation?.Value as bool? == true)
+                if (!string.IsNullOrEmpty(annotation?.Value as string))
                 {
+                    foreach (var navigation in entityTypeBuilder.Metadata.GetNavigations()
+                        .Where(n => n.ForeignKey.IsOwnership
+                            && n.DeclaringEntityType == entityTypeBuilder.Metadata
+                            && n.TargetEntityType.IsOwned()))
+                    {
+                        var mapToJsonAnnotation = navigation.TargetEntityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName);
+                        if (mapToJsonAnnotation == null || mapToJsonAnnotation.Value != annotation.Value)
+                        {
+                            navigation.TargetEntityType.SetAnnotation(RelationalAnnotationNames.MapToJsonColumnName, annotation.Value);
+                        }
+                    }
                 }
                 else
                 {
+                    // TODO: unwind everything
                 }
-            }
-
-            if (name == RelationalAnnotationNames.JsonColumnName)
-            {
             }
         }
     }

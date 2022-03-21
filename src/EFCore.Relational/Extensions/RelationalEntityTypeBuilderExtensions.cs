@@ -1909,8 +1909,8 @@ public static class RelationalEntityTypeBuilderExtensions
         where TRelatedEntity : class
     {
         var ownedNavigationBuilder = entityTypeBuilder.OwnsOne(navigationExpression);
-        ownedNavigationBuilder.OwnedEntityType.SetAnnotation(RelationalAnnotationNames.MapToJson, true);
-        ownedNavigationBuilder.OwnedEntityType.SetAnnotation(RelationalAnnotationNames.JsonColumnName, jsonColumnName);
+        //ownedNavigationBuilder.OwnedEntityType.SetAnnotation(RelationalAnnotationNames.MapToJson, true);
+        ownedNavigationBuilder.OwnedEntityType.SetAnnotation(RelationalAnnotationNames.MapToJsonColumnName, jsonColumnName);
 
         return entityTypeBuilder;
     }
@@ -1926,8 +1926,8 @@ public static class RelationalEntityTypeBuilderExtensions
         where TRelatedEntity : class
     {
         var ownedNavigationBuilder = entityTypeBuilder.OwnsMany(navigationExpression);
-        ownedNavigationBuilder.OwnedEntityType.SetAnnotation(RelationalAnnotationNames.MapToJson, true);
-        ownedNavigationBuilder.OwnedEntityType.SetAnnotation(RelationalAnnotationNames.JsonColumnName, jsonColumnName);
+        //ownedNavigationBuilder.OwnedEntityType.SetAnnotation(RelationalAnnotationNames.MapToJson, true);
+        ownedNavigationBuilder.OwnedEntityType.SetAnnotation(RelationalAnnotationNames.MapToJsonColumnName, jsonColumnName);
 
         return entityTypeBuilder;
     }
