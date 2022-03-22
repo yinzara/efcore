@@ -10367,7 +10367,7 @@ WHERE [e].[TimeSpan] = @__parameter_0");
                 b.OwnsOne(x => x.Nested).WithOwner(x => x.Parent);
             });
 
-            modelBuilder.Entity<Entity>().MapToJson(x => x.Reference, "json_reference");
+            //modelBuilder.Entity<Entity>().MapToJson(x => x.Reference, "json_reference");
         }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
