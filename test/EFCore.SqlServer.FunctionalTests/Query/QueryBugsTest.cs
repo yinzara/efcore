@@ -10361,13 +10361,16 @@ WHERE [e].[TimeSpan] = @__parameter_0");
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.Entity<SomeOtherEntity>().ToTable("SomeOtherTable");
+            modelBuilder.Entity<Entity>().ToTable("EntityTable");
+
             modelBuilder.Entity<Entity>().OwnsOne(x => x.Reference, b =>
             {
                 b.WithOwner(x => x.Owner);
                 b.OwnsOne(x => x.Nested).WithOwner(x => x.Parent);
             });
 
-            //modelBuilder.Entity<Entity>().MapToJson(x => x.Reference, "json_reference");
+            modelBuilder.Entity<Entity>().MapToJson(x => x.Reference, "json_reference");
         }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -10395,7 +10398,6 @@ WHERE [e].[TimeSpan] = @__parameter_0");
         public NestedReference Nested { get; set; }
 
         public SomeOtherEntity Entity { get; set; }
-
     }
 
     public class NestedReference
