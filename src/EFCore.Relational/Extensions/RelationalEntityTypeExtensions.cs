@@ -67,6 +67,15 @@ public static class RelationalEntityTypeExtensions
             return ownership.PrincipalEntityType.GetTableName();
         }
 
+        // TODO: combine with the above
+        // owned collection entity mapped to json is also mapped to the parent table
+        var mapToJsonColumnName = entityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string;
+        if (ownership != null
+            && !string.IsNullOrEmpty(mapToJsonColumnName))
+        {
+            return ownership.PrincipalEntityType.GetTableName();
+        }
+
         var name = entityType.ShortName();
         if (entityType.HasSharedClrType
             && ownership != null

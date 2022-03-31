@@ -411,7 +411,7 @@ public class RelationalModelValidator : ModelValidator
             }
 
             var primaryKey = mappedType.FindPrimaryKey();
-                if (primaryKey != null
+            if (primaryKey != null
                 && (mappedType.FindForeignKeys(primaryKey.Properties)
                     .FirstOrDefault(
                         fk => fk.PrincipalKey.IsPrimaryKey()
@@ -429,7 +429,15 @@ public class RelationalModelValidator : ModelValidator
                 continue;
             }
 
-            if (root != null)
+            // HACK (do it properly, i.e. add some validation to this scenario, not everything should be allowed presumably)
+            // owned types mapped to json can share table with parent even in 1-many scenario
+            var mapToJsonColumnName = mappedType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string;
+            //if (mapToJsonColumnName != null)
+            //{
+            //    continue;
+            //}
+
+            if (root != null && mapToJsonColumnName == null)
             {
                 throw new InvalidOperationException(
                     RelationalStrings.IncompatibleTableNoRelationship(

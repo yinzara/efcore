@@ -1901,7 +1901,7 @@ public static class RelationalEntityTypeBuilderExtensions
     /// <summary>
     /// TODO
     /// </summary>
-    public static EntityTypeBuilder<TEntity> MapToJson<TEntity, TRelatedEntity>(
+    public static EntityTypeBuilder<TEntity> MapReferenceToJson<TEntity, TRelatedEntity>(
         this EntityTypeBuilder<TEntity> entityTypeBuilder,
         Expression<Func<TEntity, TRelatedEntity?>> navigationExpression,
         string jsonColumnName)
@@ -1918,7 +1918,7 @@ public static class RelationalEntityTypeBuilderExtensions
     /// <summary>
     /// TODO
     /// </summary>
-    public static EntityTypeBuilder<TEntity> MapToJson<TEntity, TRelatedEntity>(
+    public static EntityTypeBuilder<TEntity> MapCollectionToJson<TEntity, TRelatedEntity>(
         this EntityTypeBuilder<TEntity> entityTypeBuilder,
         Expression<Func<TEntity, IEnumerable<TRelatedEntity>?>> navigationExpression,
         string jsonColumnName)

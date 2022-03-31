@@ -34,6 +34,12 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
 
             if (name == RelationalAnnotationNames.MapToJsonColumnName)
             {
+                var tableName = entityTypeBuilder.Metadata.GetTableName();
+                if (tableName == null)
+                {
+                    throw new InvalidOperationException("need table name");
+                }
+
                 if (!string.IsNullOrEmpty(annotation?.Value as string))
                 {
                     foreach (var navigation in entityTypeBuilder.Metadata.GetNavigations()
@@ -45,6 +51,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                         if (mapToJsonAnnotation == null || mapToJsonAnnotation.Value != annotation.Value)
                         {
                             navigation.TargetEntityType.SetAnnotation(RelationalAnnotationNames.MapToJsonColumnName, annotation.Value);
+                            //navigation.TargetEntityType.SetAnnotation(RelationalAnnotationNames.TableName, tableName);
                         }
                     }
                 }
@@ -53,6 +60,14 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                     // TODO: unwind everything
                 }
             }
+
+            // if table name changed for entity which owns other entities mapped to 
+            //if (name == RelationalAnnotationNames.TableName)
+            //{
+
+            //}
+
+
         }
     }
 }
