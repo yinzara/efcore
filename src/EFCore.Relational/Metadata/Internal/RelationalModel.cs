@@ -414,8 +414,9 @@ public class RelationalModel : Annotatable, IRelationalModel
                     && !property.IsKey()
                     && !property.IsForeignKey())
                 {
-                    // all non-key properties in entity which is mapped to json should be mapped to that json column
-                    columnName = mapToJsonColumnName;
+                    // all non-key properties in entity which is mapped to json are not technically mapped to any column, leave the mapping as null and deal with it accordingly
+                    // TODO: do it in GetColumnName instead????
+                    columnName = null;
                 }
                 else
                 {

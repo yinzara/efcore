@@ -1173,6 +1173,10 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                     var entityProjection = _selectExpression.GenerateWeakEntityProjectionExpression(
                         targetEntityType, table, identifyingColumn.Name, identifyingColumn.Table, principalNullable);
 
+
+                    // maumar: smit's info
+                    // put sqlexpression representing json path instead of entity projection here
+                    // this will do the work of value buffer
                     if (entityProjection != null)
                     {
                         innerShaper = new RelationalEntityShaperExpression(targetEntityType, entityProjection, principalNullable);

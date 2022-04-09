@@ -103,7 +103,19 @@ public static class RelationalPropertyExtensions
             return (string?)columnAnnotation.Value;
         }
 
-        return GetDefaultColumnName(property, storeObject);
+        // HACK: for entity mapped to json we only have proper columns for the keys, for the rest we want to return null (so that we can catch it later and handle properly)
+        // GetDefaultColumnName returns non-nullable, so just make it return emtpty string and convert to null here
+        var result = GetDefaultColumnName(property, storeObject);
+        if (result == string.Empty && !string.IsNullOrEmpty(property.DeclaringEntityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string))
+        {
+            return null;
+        }
+        else
+        {
+            return result;
+        }
+
+        //return GetDefaultColumnName(property, storeObject);
     }
 
     /// <summary>
@@ -132,6 +144,12 @@ public static class RelationalPropertyExtensions
         if (sharedTablePrincipalConcurrencyProperty != null)
         {
             return sharedTablePrincipalConcurrencyProperty.GetColumnName(storeObject)!;
+        }
+
+        if (!string.IsNullOrEmpty(property.DeclaringEntityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string))
+        {
+            // for properties on owned type mapped to json we don't really have column to map to, unless the property is part of the shared key (which is handled above)
+            return string.Empty;
         }
 
         var entityType = property.DeclaringEntityType;
@@ -1313,6 +1331,13 @@ public static class RelationalPropertyExtensions
         var column = property.GetColumnName(storeObject);
         if (column == null)
         {
+            // for entities mapped to json, if column name was not returned the property is either contained in json, or (in case of collection), a synthesized key based on ordinal (or a FK to that key in it's owned)
+            // so just skip this, there is no shared objct root to speak of
+            if (property.DeclaringEntityType.MappedToJson())
+            {
+                return null;
+            }
+
             throw new InvalidOperationException(
                 RelationalStrings.PropertyNotMappedToTable(
                     property.Name, property.DeclaringEntityType.DisplayName(), storeObject.DisplayName()));
@@ -1369,7 +1394,24 @@ public static class RelationalPropertyExtensions
                 break;
             }
 
-            principalProperty = linkingRelationship.PrincipalKey.Properties[linkingRelationship.Properties.IndexOf(principalProperty)];
+            if (string.IsNullOrEmpty(property?.DeclaringEntityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string))
+            {
+                // original behavior
+                principalProperty = linkingRelationship.PrincipalKey.Properties[linkingRelationship.Properties.IndexOf(principalProperty)];
+            }
+            else
+            {
+                // in case of collection mapped to json, part of the key could map to actual PK on the principal and part is generated (based on ordinal)
+                // so FindRowInternalForeignKeys can find a corresponding FK, but the property we are asking about doesn't actually map
+                // TODO: do something better here
+                var index = linkingRelationship.Properties.IndexOf(principalProperty);
+                if (index == -1)
+                {
+                    return null;
+                }
+
+                principalProperty = linkingRelationship.PrincipalKey.Properties[index];
+            }
         }
 
         return principalProperty == property ? null : principalProperty;
