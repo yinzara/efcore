@@ -114,6 +114,31 @@ public sealed partial class SelectExpression : TableExpressionBase
                 propertyExpressions[property] = CreateColumnExpression(property, table, tableReferenceExpression, nullable: false);
             }
 
+            // maumar: hack, also do this for inheritance code path below
+            foreach (var navigation in entityType.GetNavigations())
+            {
+                if (navigation.ForeignKey.IsOwnership
+                    && navigation.ForeignKey.DeclaringEntityType.MappedToJson())
+                {
+
+                    var jsonColumnName = navigation.ForeignKey.DeclaringEntityType.GetAnnotation(RelationalAnnotationNames.MapToJsonColumnName).Value as string;
+                    var jsonTypeMapping = navigation.ForeignKey.DeclaringEntityType.FindRuntimeAnnotation(RelationalAnnotationNames.MapToJsonTypeMapping)?.Value as RelationalTypeMapping;
+
+                    // type mapping annotation should never be null here
+                    propertyExpressions[navigation] = new ConcreteColumnExpression(jsonColumnName!, tableReferenceExpression, typeof(string), jsonTypeMapping!, true);
+
+
+                    Console.WriteLine("sikson");
+                }
+            }
+
+
+
+
+
+
+
+
             var entityProjection = new EntityProjectionExpression(entityType, propertyExpressions);
             _projectionMapping[new ProjectionMember()] = entityProjection;
 
@@ -3131,6 +3156,13 @@ public sealed partial class SelectExpression : TableExpressionBase
         TableReferenceExpression tableExpression,
         bool nullable)
         => new(property, table.FindColumn(property)!, tableExpression, nullable);
+
+    private static ConcreteColumnExpression CreateJsonColumnExpression(
+        string jsonColumnName,
+        TableReferenceExpression tableExpression,
+        Type type,
+        RelationalTypeMapping typeMapping)
+        => new(jsonColumnName, tableExpression, type, typeMapping, nullable: true);
 
     private ConcreteColumnExpression GenerateOuterColumn(
         TableReferenceExpression tableReferenceExpression,

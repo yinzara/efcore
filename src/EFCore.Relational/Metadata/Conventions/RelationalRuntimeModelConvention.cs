@@ -52,7 +52,11 @@ public class RelationalRuntimeModelConvention : RuntimeModelConvention
         if (runtime)
         {
             annotations[RelationalAnnotationNames.RelationalModel] =
-                RelationalModel.Create(runtimeModel, RelationalDependencies.RelationalAnnotationProvider, designTime: false);
+                RelationalModel.Create(
+                    runtimeModel,
+                    RelationalDependencies.RelationalAnnotationProvider,
+                    RelationalDependencies.RelationalTypeMappingSource,
+                    designTime: false);
         }
         else
         {

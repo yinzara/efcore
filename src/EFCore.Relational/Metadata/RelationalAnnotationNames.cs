@@ -263,4 +263,10 @@ public static class RelationalAnnotationNames
     ///     THe name for the annotation specifying JSON column name to which the object is mapped.
     /// </summary>
     public const string MapToJsonColumnName = Prefix + "MapToJsonColumnName";
+
+    /// <summary>
+    ///     THe name for the annotation specifying JSON column name to which the object is mapped.
+    /// </summary>
+    public const string MapToJsonTypeMapping = Prefix + "MapToJsonTypeMapping";
+
 }

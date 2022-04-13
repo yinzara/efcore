@@ -1170,6 +1170,30 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                         || (entityType.FindDiscriminatorProperty() == null
                             && navigation.DeclaringEntityType.IsStrictlyDerivedFrom(entityShaperExpression.EntityType));
 
+
+
+                    if (targetEntityType.MappedToJson())
+                    {
+                        var jsonColumnName = targetEntityType.GetAnnotation(RelationalAnnotationNames.MapToJsonColumnName).Value as string;
+
+
+
+
+                        var jsonColumn = table.Columns.SingleOrDefault(x => x.Name == jsonColumnName);
+                        //var jsonQuery = _sqlExpressionFactory.Function(
+                        //    "JSON_QUERY",
+                        //    arguments: new[] { new  jsonColumn },
+                        //    nullable: true,
+                        //    argumentsPropagateNullability: new[] { true },
+                        //    typeof(string));
+                    }
+
+
+
+
+
+
+
                     var entityProjection = _selectExpression.GenerateWeakEntityProjectionExpression(
                         targetEntityType, table, identifyingColumn.Name, identifyingColumn.Table, principalNullable);
 

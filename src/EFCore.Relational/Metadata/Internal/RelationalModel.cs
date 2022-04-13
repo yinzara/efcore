@@ -1,6 +1,9 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore.Storage;
+
 namespace Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 /// <summary>
@@ -114,9 +117,16 @@ public class RelationalModel : Annotatable, IRelationalModel
     public static IModel Add(
         IModel model,
         IRelationalAnnotationProvider? relationalAnnotationProvider,
+        IRelationalTypeMappingSource? relationalTypeMappingSource,
         bool designTime)
     {
-        model.AddRuntimeAnnotation(RelationalAnnotationNames.RelationalModel, Create(model, relationalAnnotationProvider, designTime));
+        model.AddRuntimeAnnotation(
+            RelationalAnnotationNames.RelationalModel,
+            Create(
+                model,
+                relationalAnnotationProvider,
+                relationalTypeMappingSource,
+                designTime));
         return model;
     }
 
@@ -129,6 +139,7 @@ public class RelationalModel : Annotatable, IRelationalModel
     public static IRelationalModel Create(
         IModel model,
         IRelationalAnnotationProvider? relationalAnnotationProvider,
+        IRelationalTypeMappingSource? relationalTypeMappingSource,
         bool designTime)
     {
         var databaseModel = new RelationalModel(model);
@@ -144,6 +155,20 @@ public class RelationalModel : Annotatable, IRelationalModel
             AddSqlQueries(databaseModel, entityType);
 
             AddMappedFunctions(databaseModel, entityType);
+
+            // maumar: fix/clean up
+            // TODO: we should make this in a way that npgsql can hook their json/jsonb mapping here
+            if (!designTime && entityType.MappedToJson() && relationalTypeMappingSource != null)
+            {
+                var jsonTypeMappingAnnotation = entityType.FindRuntimeAnnotation(RelationalAnnotationNames.MapToJsonTypeMapping);
+                if (jsonTypeMappingAnnotation == null )
+                {
+                    //var jsonColumnTypeMapping = relationalTypeMappingSource.FindMapping(typeof(JsonElement), "nvarchar");
+                    var jsonColumnTypeMapping = relationalTypeMappingSource.GetMapping(typeof(string));
+
+                    entityType.AddRuntimeAnnotation(RelationalAnnotationNames.MapToJsonTypeMapping, jsonColumnTypeMapping);
+                }
+            }
         }
 
         AddTvfs(databaseModel);
@@ -386,6 +411,14 @@ public class RelationalModel : Annotatable, IRelationalModel
                     table.Columns.Add(mapToJsonColumnName, jsonColumn);
                 }
 
+
+
+
+
+
+
+
+
                 //// TODO: is this correct? should all properties be mapped to the json column?
                 //// shadow properties (keys, foreign keys) shouldn't be persisted
                 //// since we need to allow users to create models reflecting their existing json model
@@ -414,6 +447,7 @@ public class RelationalModel : Annotatable, IRelationalModel
                     && !property.IsKey()
                     && !property.IsForeignKey())
                 {
+                    // maumar:
                     // all non-key properties in entity which is mapped to json are not technically mapped to any column, leave the mapping as null and deal with it accordingly
                     // TODO: do it in GetColumnName instead????
                     columnName = null;
