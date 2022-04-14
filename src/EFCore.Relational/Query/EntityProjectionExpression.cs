@@ -7,6 +7,103 @@ using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 namespace Microsoft.EntityFrameworkCore.Query;
 
 /// <summary>
+///     TODO
+/// </summary>
+public class EntityMappedToJsonProjectionExpression : Expression
+{
+    private readonly ColumnExpression _jsonColumn;
+    private readonly IReadOnlyDictionary<IProperty, ColumnExpression> _propertyExpressionMap; // key properties that get mapped to normal columns
+    private readonly IReadOnlyDictionary<IProperty, string> _propertyToJsonPathMap; // regular properties of the json-mapped entity, they are mapped into a json column with a specific json path
+    private readonly Dictionary<INavigation, (string, EntityShaperExpression)> _ownedNavigationMap = new(); // nested owned navigations - entity shaper 
+
+    /// <summary>
+    ///     TODO
+    /// </summary>
+    public EntityMappedToJsonProjectionExpression(
+        IEntityType entityType,
+        ColumnExpression jsonColumn,
+        IReadOnlyDictionary<IProperty, ColumnExpression> propertyExpressionMap,
+        IReadOnlyDictionary<IProperty, string> propertyToJsonPathMap)
+    {
+        EntityType = entityType;
+        _jsonColumn = jsonColumn;
+        _propertyExpressionMap = propertyExpressionMap;
+        _propertyToJsonPathMap = propertyToJsonPathMap;
+    }
+
+    /// <summary>
+    ///     The entity type being projected out.
+    /// </summary>
+    public virtual IEntityType EntityType { get; }
+
+    /// <inheritdoc />
+    public sealed override ExpressionType NodeType
+        => ExpressionType.Extension;
+
+    /// <inheritdoc />
+    public override Type Type
+        => EntityType.ClrType;
+
+    /// <inheritdoc />
+    protected override Expression VisitChildren(ExpressionVisitor visitor)
+    {
+        var changed = false;
+
+        var jsonColumn = (ColumnExpression)visitor.Visit(_jsonColumn);
+        changed |= jsonColumn != _jsonColumn;
+
+        var propertyExpressionMap = new Dictionary<IProperty, ColumnExpression>();
+        foreach (var (property, columnExpression) in _propertyExpressionMap)
+        {
+            var newExpression = (ColumnExpression)visitor.Visit(columnExpression);
+            changed |= newExpression != columnExpression;
+
+            propertyExpressionMap[property] = newExpression;
+        }
+
+        return changed
+            ? new EntityMappedToJsonProjectionExpression(EntityType, jsonColumn, propertyExpressionMap, _propertyToJsonPathMap)
+            : this;
+    }
+
+    /// <summary>
+    ///     TODO
+    /// </summary>
+    public virtual void AddNavigationBinding(INavigation navigation, string jsonPath, EntityShaperExpression entityShaper)
+    {
+        if (!EntityType.IsAssignableFrom(navigation.DeclaringEntityType)
+            && !navigation.DeclaringEntityType.IsAssignableFrom(EntityType))
+        {
+            throw new InvalidOperationException(
+                RelationalStrings.UnableToBindMemberToEntityProjection("navigation", navigation.Name, EntityType.DisplayName()));
+        }
+
+        _ownedNavigationMap[navigation] = (jsonPath, entityShaper);
+    }
+
+    ///// <summary>
+    /////     TODO
+    ///// </summary>
+    //public virtual EntityShaperExpression? BindNavigation(INavigation navigation)
+    //{
+    //    if (!EntityType.IsAssignableFrom(navigation.DeclaringEntityType)
+    //        && !navigation.DeclaringEntityType.IsAssignableFrom(EntityType))
+    //    {
+    //        throw new InvalidOperationException(
+    //            RelationalStrings.UnableToBindMemberToEntityProjection("navigation", navigation.Name, EntityType.DisplayName()));
+    //    }
+
+    //    return _ownedNavigationMap.TryGetValue(navigation, out var expression)
+    //        ? expression
+    //        : null;
+    //}
+
+    /// <inheritdoc />
+    public override string ToString()
+        => $"EntityMappedToJsonProjectionExpression: {EntityType.ShortName()}";
+}
+
+/// <summary>
 ///     <para>
 ///         An expression that represents an entity in the projection of <see cref="SelectExpression" />.
 ///     </para>
@@ -17,18 +114,18 @@ namespace Microsoft.EntityFrameworkCore.Query;
 /// </summary>
 public class EntityProjectionExpression : Expression
 {
-    private readonly IReadOnlyDictionary<IProperty, ColumnExpression> _propertyExpressionMap;
+    private readonly IReadOnlyDictionary<IPropertyBase, ColumnExpression> _propertyExpressionMap;
     private readonly Dictionary<INavigation, EntityShaperExpression> _ownedNavigationMap = new();
 
     /// <summary>
     ///     Creates a new instance of the <see cref="EntityProjectionExpression" /> class.
     /// </summary>
     /// <param name="entityType">The entity type to shape.</param>
-    /// <param name="propertyExpressionMap">A dictionary of column expressions corresponding to properties of the entity type.</param>
+    /// <param name="propertyExpressionMap">A dictionary of column expressions corresponding to properties (or in some cases navigations) of the entity type.</param>
     /// <param name="discriminatorExpression">A <see cref="SqlExpression" /> to generate discriminator for each concrete entity type in hierarchy.</param>
     public EntityProjectionExpression(
         IEntityType entityType,
-        IReadOnlyDictionary<IProperty, ColumnExpression> propertyExpressionMap,
+        IReadOnlyDictionary<IPropertyBase, ColumnExpression> propertyExpressionMap,
         SqlExpression? discriminatorExpression = null)
     {
         EntityType = entityType;
@@ -58,7 +155,7 @@ public class EntityProjectionExpression : Expression
     protected override Expression VisitChildren(ExpressionVisitor visitor)
     {
         var changed = false;
-        var propertyExpressionMap = new Dictionary<IProperty, ColumnExpression>();
+        var propertyExpressionMap = new Dictionary<IPropertyBase, ColumnExpression>();
         foreach (var (property, columnExpression) in _propertyExpressionMap)
         {
             var newExpression = (ColumnExpression)visitor.Visit(columnExpression);
@@ -81,7 +178,7 @@ public class EntityProjectionExpression : Expression
     /// <returns>A new entity projection expression which can project nullable entity.</returns>
     public virtual EntityProjectionExpression MakeNullable()
     {
-        var propertyExpressionMap = new Dictionary<IProperty, ColumnExpression>();
+        var propertyExpressionMap = new Dictionary<IPropertyBase, ColumnExpression>();
         foreach (var (property, columnExpression) in _propertyExpressionMap)
         {
             propertyExpressionMap[property] = columnExpression.MakeNullable();
@@ -105,11 +202,15 @@ public class EntityProjectionExpression : Expression
                     derivedType.DisplayName(), EntityType.DisplayName()));
         }
 
-        var propertyExpressionMap = new Dictionary<IProperty, ColumnExpression>();
+        var propertyExpressionMap = new Dictionary<IPropertyBase, ColumnExpression>();
         foreach (var (property, columnExpression) in _propertyExpressionMap)
         {
-            if (derivedType.IsAssignableFrom(property.DeclaringEntityType)
-                || property.DeclaringEntityType.IsAssignableFrom(derivedType))
+            // maumar:
+            // TODO: any other possibilities here?
+            var declaringEntityType = (property as IProperty)?.DeclaringEntityType ?? ((INavigation)property).DeclaringEntityType;
+
+            if (derivedType.IsAssignableFrom(declaringEntityType)
+                || declaringEntityType.IsAssignableFrom(derivedType))
             {
                 propertyExpressionMap[property] = columnExpression;
             }

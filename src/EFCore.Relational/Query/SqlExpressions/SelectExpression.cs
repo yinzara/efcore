@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Query.Internal;
 
@@ -108,36 +109,26 @@ public sealed partial class SelectExpression : TableExpressionBase
             var tableReferenceExpression = new TableReferenceExpression(this, tableExpression.Alias!);
             AddTable(tableExpression, tableReferenceExpression);
 
-            var propertyExpressions = new Dictionary<IProperty, ColumnExpression>();
+            var propertyExpressions = new Dictionary<IPropertyBase, ColumnExpression>();
             foreach (var property in GetAllPropertiesInHierarchy(entityType))
             {
                 propertyExpressions[property] = CreateColumnExpression(property, table, tableReferenceExpression, nullable: false);
             }
 
             // maumar: hack, also do this for inheritance code path below
-            foreach (var navigation in entityType.GetNavigations())
-            {
-                if (navigation.ForeignKey.IsOwnership
-                    && navigation.ForeignKey.DeclaringEntityType.MappedToJson())
-                {
+            //foreach (var navigation in entityType.GetNavigations())
+            //{
+            //    if (navigation.ForeignKey.IsOwnership
+            //        && navigation.ForeignKey.DeclaringEntityType.MappedToJson())
+            //    {
 
-                    var jsonColumnName = navigation.ForeignKey.DeclaringEntityType.GetAnnotation(RelationalAnnotationNames.MapToJsonColumnName).Value as string;
-                    var jsonTypeMapping = navigation.ForeignKey.DeclaringEntityType.FindRuntimeAnnotation(RelationalAnnotationNames.MapToJsonTypeMapping)?.Value as RelationalTypeMapping;
+            //        var jsonColumnName = navigation.ForeignKey.DeclaringEntityType.GetAnnotation(RelationalAnnotationNames.MapToJsonColumnName).Value as string;
+            //        var jsonTypeMapping = navigation.ForeignKey.DeclaringEntityType.FindRuntimeAnnotation(RelationalAnnotationNames.MapToJsonTypeMapping)?.Value as RelationalTypeMapping;
 
-                    // type mapping annotation should never be null here
-                    propertyExpressions[navigation] = new ConcreteColumnExpression(jsonColumnName!, tableReferenceExpression, typeof(string), jsonTypeMapping!, true);
-
-
-                    Console.WriteLine("sikson");
-                }
-            }
-
-
-
-
-
-
-
+            //        // type mapping annotation should never be null here
+            //        propertyExpressions[navigation] = new ConcreteColumnExpression(jsonColumnName!, tableReferenceExpression, typeof(string), jsonTypeMapping!, true);
+            //    }
+            //}
 
             var entityProjection = new EntityProjectionExpression(entityType, propertyExpressions);
             _projectionMapping[new ProjectionMember()] = entityProjection;
@@ -157,7 +148,7 @@ public sealed partial class SelectExpression : TableExpressionBase
             var keyProperties = entityType.FindPrimaryKey()!.Properties;
             List<ColumnExpression> joinColumns = default!;
             var tables = new List<ITableBase>();
-            var columns = new Dictionary<IProperty, ColumnExpression>();
+            var columns = new Dictionary<IPropertyBase, ColumnExpression>();
             foreach (var baseType in entityType.GetAllBaseTypesInclusive())
             {
                 var table = baseType.GetViewOrTableMappings().Single(m => !tables.Contains(m.Table)).Table;
@@ -254,7 +245,10 @@ public sealed partial class SelectExpression : TableExpressionBase
         var tableReferenceExpression = new TableReferenceExpression(this, tableExpressionBase.Alias!);
         AddTable(tableExpressionBase, tableReferenceExpression);
 
-        var propertyExpressions = new Dictionary<IProperty, ColumnExpression>();
+        var propertyExpressions = new Dictionary<IPropertyBase, ColumnExpression>();
+
+        // maumar:
+        // TODO: fix this just like we did above!
         foreach (var property in GetAllPropertiesInHierarchy(entityType))
         {
             propertyExpressions[property] = CreateColumnExpression(property, table, tableReferenceExpression, nullable: false);
@@ -1746,7 +1740,7 @@ public sealed partial class SelectExpression : TableExpressionBase
                 throw new InvalidOperationException(RelationalStrings.SetOperationsOnDifferentStoreTypes);
             }
 
-            var propertyExpressions = new Dictionary<IProperty, ColumnExpression>();
+            var propertyExpressions = new Dictionary<IPropertyBase, ColumnExpression>();
             foreach (var property in GetAllPropertiesInHierarchy(projection1.EntityType))
             {
                 var column1 = projection1.BindProperty(property);
@@ -1940,7 +1934,7 @@ public sealed partial class SelectExpression : TableExpressionBase
             return selectExpression._tableReferences[tableIndex];
         }
 
-        static IReadOnlyDictionary<IProperty, ColumnExpression>? GetPropertyExpressionFromSameTable(
+        static IReadOnlyDictionary<IPropertyBase, ColumnExpression>? GetPropertyExpressionFromSameTable(
             IEntityType entityType,
             ITableBase table,
             SelectExpression selectExpression,
@@ -1963,7 +1957,7 @@ public sealed partial class SelectExpression : TableExpressionBase
                             });
                 }
 
-                var propertyExpressions = new Dictionary<IProperty, ColumnExpression>();
+                var propertyExpressions = new Dictionary<IPropertyBase, ColumnExpression>();
                 var tableReferenceExpression = FindTableReference(selectExpression, tableExpressionBase);
                 foreach (var property in entityType
                              .GetAllBaseTypes().Concat(entityType.GetDerivedTypesInclusive())
@@ -1989,7 +1983,7 @@ public sealed partial class SelectExpression : TableExpressionBase
                     return null;
                 }
 
-                var newPropertyExpressions = new Dictionary<IProperty, ColumnExpression>();
+                var newPropertyExpressions = new Dictionary<IPropertyBase, ColumnExpression>();
                 var tableReferenceExpression = FindTableReference(selectExpression, tableExpressionBase);
                 foreach (var (property, columnExpression) in subqueryPropertyExpressions)
                 {
@@ -2002,12 +1996,12 @@ public sealed partial class SelectExpression : TableExpressionBase
             return null;
         }
 
-        static IReadOnlyDictionary<IProperty, ColumnExpression> GetPropertyExpressionsFromJoinedTable(
+        static IReadOnlyDictionary<IPropertyBase, ColumnExpression> GetPropertyExpressionsFromJoinedTable(
             IEntityType entityType,
             ITableBase table,
             TableReferenceExpression tableReferenceExpression)
         {
-            var propertyExpressions = new Dictionary<IProperty, ColumnExpression>();
+            var propertyExpressions = new Dictionary<IPropertyBase, ColumnExpression>();
             foreach (var property in entityType
                          .GetAllBaseTypes().Concat(entityType.GetDerivedTypesInclusive())
                          .SelectMany(t => t.GetDeclaredProperties()))
@@ -2017,6 +2011,87 @@ public sealed partial class SelectExpression : TableExpressionBase
             }
 
             return propertyExpressions;
+        }
+    }
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    [EntityFrameworkInternal]
+    public EntityMappedToJsonProjectionExpression GenerateEntityMappedToJsonProjectionExpression(
+        IEntityType entityType,
+        string jsonColumnName,
+        RelationalTypeMapping jsonColumnTypeMapping,
+        ITableBase table,
+        TableExpressionBase tableExpressionBase,
+        bool nullable = true)
+    {
+        var jsonColumn = new ConcreteColumnExpression(
+            jsonColumnName,
+            FindTableReference(this, tableExpressionBase),
+            typeof(JsonElement),
+            jsonColumnTypeMapping,
+            nullable: true);
+
+        var keyPropertiesMap = GetKeyPropertiesForEntityMappedToJson(entityType, table, FindTableReference(this, tableExpressionBase));
+        var propertiesToJsonMap = GetPropertiesToJsonMap(entityType);
+
+        return new EntityMappedToJsonProjectionExpression(
+            entityType,
+            jsonColumn,
+            keyPropertiesMap,
+            propertiesToJsonMap);
+
+        static TableReferenceExpression FindTableReference(SelectExpression selectExpression, TableExpressionBase tableExpression)
+        {
+            var tableIndex = selectExpression._tables.FindIndex(e => ReferenceEquals(e, tableExpression));
+            return selectExpression._tableReferences[tableIndex];
+        }
+
+        static IReadOnlyDictionary<IProperty, ColumnExpression> GetKeyPropertiesForEntityMappedToJson(
+            IEntityType entityType,
+            ITableBase table,
+            TableReferenceExpression tableReferenceExpression)
+        {
+            var propertyExpressions = new Dictionary<IProperty, ColumnExpression>();
+            foreach (var property in entityType.GetForeignKeyProperties())
+            {
+                propertyExpressions[property] = new ConcreteColumnExpression(
+                    property, table.FindColumn(property)!, tableReferenceExpression, nullable: true);
+            }
+
+            return propertyExpressions;
+        }
+
+        static IReadOnlyDictionary<IProperty, string> GetPropertiesToJsonMap(IEntityType entityType)
+        {
+            var result = new Dictionary<IProperty, string>();
+
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.IsForeignKey())
+                {
+                    continue;
+                }
+
+                if (property.IsPrimaryKey())
+                {
+                    // TODO: figure out how to mark it, maybe look at cosmos?
+                    result.Add(property, "[]");
+
+                    // PK that is not FK - it must be the collection ordinal key thing
+                    // maumar: TODO - this might not be happening for this code path - verify!!!!
+                }
+
+                // TODO: extract custom mapping
+                // also what to do when two properties only differ by casing (allowed in c#) - TEST!!!!
+                result.Add(property, property.Name.ToLower());
+            }
+
+            return result;
         }
     }
 
@@ -2928,7 +3003,7 @@ public sealed partial class SelectExpression : TableExpressionBase
 
         EntityProjectionExpression LiftEntityProjectionFromSubquery(EntityProjectionExpression entityProjection)
         {
-            var propertyExpressions = new Dictionary<IProperty, ColumnExpression>();
+            var propertyExpressions = new Dictionary<IPropertyBase, ColumnExpression>();
             foreach (var property in GetAllPropertiesInHierarchy(entityProjection.EntityType))
             {
                 var innerColumn = entityProjection.BindProperty(property);

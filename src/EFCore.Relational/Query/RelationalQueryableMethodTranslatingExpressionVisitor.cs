@@ -1171,15 +1171,22 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                             && navigation.DeclaringEntityType.IsStrictlyDerivedFrom(entityShaperExpression.EntityType));
 
 
-
+                    Expression? entityProjection;
                     if (targetEntityType.MappedToJson())
                     {
                         var jsonColumnName = targetEntityType.GetAnnotation(RelationalAnnotationNames.MapToJsonColumnName).Value as string;
+                        var jsonColumnTypeMapping = targetEntityType.FindRuntimeAnnotationValue(RelationalAnnotationNames.MapToJsonTypeMapping) as RelationalTypeMapping;
 
+                        var jsonColumn = table.Columns.Single(x => x.Name == jsonColumnName);
 
+                        entityProjection = _selectExpression.GenerateEntityMappedToJsonProjectionExpression(
+                            targetEntityType,
+                            jsonColumnName!,
+                            jsonColumnTypeMapping!,
+                            table,
+                            identifyingColumn.Table,
+                            principalNullable);
 
-
-                        var jsonColumn = table.Columns.SingleOrDefault(x => x.Name == jsonColumnName);
                         //var jsonQuery = _sqlExpressionFactory.Function(
                         //    "JSON_QUERY",
                         //    arguments: new[] { new  jsonColumn },
@@ -1187,15 +1194,14 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                         //    argumentsPropagateNullability: new[] { true },
                         //    typeof(string));
                     }
+                    else
+                    {
+                        entityProjection = _selectExpression.GenerateWeakEntityProjectionExpression(
+                            targetEntityType, table, identifyingColumn.Name, identifyingColumn.Table, principalNullable);
+                    }
 
-
-
-
-
-
-
-                    var entityProjection = _selectExpression.GenerateWeakEntityProjectionExpression(
-                        targetEntityType, table, identifyingColumn.Name, identifyingColumn.Table, principalNullable);
+                    //var entityProjection = _selectExpression.GenerateWeakEntityProjectionExpression(
+                    //    targetEntityType, table, identifyingColumn.Name, identifyingColumn.Table, principalNullable);
 
 
                     // maumar: smit's info
@@ -1330,6 +1336,7 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                 ProjectionBindingExpression projectionBindingExpression
                     => (EntityProjectionExpression)_selectExpression.GetProjection(projectionBindingExpression),
                 EntityProjectionExpression entityProjectionExpression => entityProjectionExpression,
+                EntityMappedToJsonProjectionExpression entityMappedToJsonProjectionExpression => entityMappedToJsonProjectionExpression;
                 _ => throw new InvalidOperationException()
             };
 
