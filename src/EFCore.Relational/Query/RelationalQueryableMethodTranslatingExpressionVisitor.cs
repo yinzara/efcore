@@ -1083,6 +1083,12 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
             }
 
             var entityProjectionExpression = GetEntityProjectionExpression(entityShaperExpression);
+
+
+
+
+
+
             var foreignKey = navigation.ForeignKey;
             if (navigation.IsCollection)
             {
@@ -1171,7 +1177,7 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                             && navigation.DeclaringEntityType.IsStrictlyDerivedFrom(entityShaperExpression.EntityType));
 
 
-                    Expression? entityProjection;
+                    EntityProjectionExpression? entityProjection;
                     if (targetEntityType.MappedToJson())
                     {
                         var jsonColumnName = targetEntityType.GetAnnotation(RelationalAnnotationNames.MapToJsonColumnName).Value as string;
@@ -1202,7 +1208,6 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
 
                     //var entityProjection = _selectExpression.GenerateWeakEntityProjectionExpression(
                     //    targetEntityType, table, identifyingColumn.Name, identifyingColumn.Table, principalNullable);
-
 
                     // maumar: smit's info
                     // put sqlexpression representing json path instead of entity projection here
@@ -1336,7 +1341,7 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                 ProjectionBindingExpression projectionBindingExpression
                     => (EntityProjectionExpression)_selectExpression.GetProjection(projectionBindingExpression),
                 EntityProjectionExpression entityProjectionExpression => entityProjectionExpression,
-                EntityMappedToJsonProjectionExpression entityMappedToJsonProjectionExpression => entityMappedToJsonProjectionExpression;
+                //EntityMappedToJsonProjectionExpression entityMappedToJsonProjectionExpression => entityMappedToJsonProjectionExpression,
                 _ => throw new InvalidOperationException()
             };
 

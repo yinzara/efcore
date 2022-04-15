@@ -1153,9 +1153,7 @@ public class RelationalModel : Annotatable, IRelationalModel
                 if (foreignKey.IsOwnership
                     && !string.IsNullOrEmpty(foreignKey.PrincipalEntityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string))
                 {
-                    // skip the FKs that are between owned types mapped to json column
-                    // TODO: is this correct way? - what about FKs between normal entity and owned entity mapped to json?
-                    continue;
+                    //continue;
                 }
 
                 if (foreignKey.IsUnique

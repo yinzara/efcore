@@ -2021,7 +2021,7 @@ public sealed partial class SelectExpression : TableExpressionBase
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
     [EntityFrameworkInternal]
-    public EntityMappedToJsonProjectionExpression GenerateEntityMappedToJsonProjectionExpression(
+    public EntityProjectionExpression GenerateEntityMappedToJsonProjectionExpression(
         IEntityType entityType,
         string jsonColumnName,
         RelationalTypeMapping jsonColumnTypeMapping,
@@ -2037,26 +2037,27 @@ public sealed partial class SelectExpression : TableExpressionBase
             nullable: true);
 
         var keyPropertiesMap = GetKeyPropertiesForEntityMappedToJson(entityType, table, FindTableReference(this, tableExpressionBase));
-        var propertiesToJsonMap = GetPropertiesToJsonMap(entityType);
+        var jsonPropertyPathMap = GetJsonPropertyPathMap(entityType);
 
-        return new EntityMappedToJsonProjectionExpression(
+        return new EntityProjectionExpression(
             entityType,
             jsonColumn,
             keyPropertiesMap,
-            propertiesToJsonMap);
+            jsonPropertyPathMap);
 
         static TableReferenceExpression FindTableReference(SelectExpression selectExpression, TableExpressionBase tableExpression)
         {
             var tableIndex = selectExpression._tables.FindIndex(e => ReferenceEquals(e, tableExpression));
+
             return selectExpression._tableReferences[tableIndex];
         }
 
-        static IReadOnlyDictionary<IProperty, ColumnExpression> GetKeyPropertiesForEntityMappedToJson(
+        static IReadOnlyDictionary<IPropertyBase, ColumnExpression> GetKeyPropertiesForEntityMappedToJson(
             IEntityType entityType,
             ITableBase table,
             TableReferenceExpression tableReferenceExpression)
         {
-            var propertyExpressions = new Dictionary<IProperty, ColumnExpression>();
+            var propertyExpressions = new Dictionary<IPropertyBase, ColumnExpression>();
             foreach (var property in entityType.GetForeignKeyProperties())
             {
                 propertyExpressions[property] = new ConcreteColumnExpression(
@@ -2066,9 +2067,9 @@ public sealed partial class SelectExpression : TableExpressionBase
             return propertyExpressions;
         }
 
-        static IReadOnlyDictionary<IProperty, string> GetPropertiesToJsonMap(IEntityType entityType)
+        static IReadOnlyDictionary<IPropertyBase, string> GetJsonPropertyPathMap(IEntityType entityType)
         {
-            var result = new Dictionary<IProperty, string>();
+            var result = new Dictionary<IPropertyBase, string>();
 
             foreach (var property in entityType.GetProperties())
             {
@@ -2094,6 +2095,87 @@ public sealed partial class SelectExpression : TableExpressionBase
             return result;
         }
     }
+
+    ///// <summary>
+    /////     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    /////     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    /////     any release. You should only use it directly in your code with extreme caution and knowing that
+    /////     doing so can result in application failures when updating to a new Entity Framework Core release.
+    ///// </summary>
+    //[EntityFrameworkInternal]
+    //public EntityMappedToJsonProjectionExpression GenerateEntityMappedToJsonProjectionExpression(
+    //    IEntityType entityType,
+    //    string jsonColumnName,
+    //    RelationalTypeMapping jsonColumnTypeMapping,
+    //    ITableBase table,
+    //    TableExpressionBase tableExpressionBase,
+    //    bool nullable = true)
+    //{
+    //    var jsonColumn = new ConcreteColumnExpression(
+    //        jsonColumnName,
+    //        FindTableReference(this, tableExpressionBase),
+    //        typeof(JsonElement),
+    //        jsonColumnTypeMapping,
+    //        nullable: true);
+
+    //    var keyPropertiesMap = GetKeyPropertiesForEntityMappedToJson(entityType, table, FindTableReference(this, tableExpressionBase));
+    //    var propertiesToJsonMap = GetPropertiesToJsonMap(entityType);
+
+    //    return new EntityMappedToJsonProjectionExpression(
+    //        entityType,
+    //        jsonColumn,
+    //        keyPropertiesMap,
+    //        propertiesToJsonMap);
+
+    //    static TableReferenceExpression FindTableReference(SelectExpression selectExpression, TableExpressionBase tableExpression)
+    //    {
+    //        var tableIndex = selectExpression._tables.FindIndex(e => ReferenceEquals(e, tableExpression));
+    //        return selectExpression._tableReferences[tableIndex];
+    //    }
+
+    //    static IReadOnlyDictionary<IProperty, ColumnExpression> GetKeyPropertiesForEntityMappedToJson(
+    //        IEntityType entityType,
+    //        ITableBase table,
+    //        TableReferenceExpression tableReferenceExpression)
+    //    {
+    //        var propertyExpressions = new Dictionary<IProperty, ColumnExpression>();
+    //        foreach (var property in entityType.GetForeignKeyProperties())
+    //        {
+    //            propertyExpressions[property] = new ConcreteColumnExpression(
+    //                property, table.FindColumn(property)!, tableReferenceExpression, nullable: true);
+    //        }
+
+    //        return propertyExpressions;
+    //    }
+
+    //    static IReadOnlyDictionary<IProperty, string> GetPropertiesToJsonMap(IEntityType entityType)
+    //    {
+    //        var result = new Dictionary<IProperty, string>();
+
+    //        foreach (var property in entityType.GetProperties())
+    //        {
+    //            if (property.IsForeignKey())
+    //            {
+    //                continue;
+    //            }
+
+    //            if (property.IsPrimaryKey())
+    //            {
+    //                // TODO: figure out how to mark it, maybe look at cosmos?
+    //                result.Add(property, "[]");
+
+    //                // PK that is not FK - it must be the collection ordinal key thing
+    //                // maumar: TODO - this might not be happening for this code path - verify!!!!
+    //            }
+
+    //            // TODO: extract custom mapping
+    //            // also what to do when two properties only differ by casing (allowed in c#) - TEST!!!!
+    //            result.Add(property, property.Name.ToLower());
+    //        }
+
+    //        return result;
+    //    }
+    //}
 
     private enum JoinType
     {

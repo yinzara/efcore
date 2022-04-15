@@ -6,102 +6,102 @@ using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace Microsoft.EntityFrameworkCore.Query;
 
-/// <summary>
-///     TODO
-/// </summary>
-public class EntityMappedToJsonProjectionExpression : Expression
-{
-    private readonly ColumnExpression _jsonColumn;
-    private readonly IReadOnlyDictionary<IProperty, ColumnExpression> _propertyExpressionMap; // key properties that get mapped to normal columns
-    private readonly IReadOnlyDictionary<IProperty, string> _propertyToJsonPathMap; // regular properties of the json-mapped entity, they are mapped into a json column with a specific json path
-    private readonly Dictionary<INavigation, (string, EntityShaperExpression)> _ownedNavigationMap = new(); // nested owned navigations - entity shaper 
+///// <summary>
+/////     TODO
+///// </summary>
+//public class EntityMappedToJsonProjectionExpression : Expression
+//{
+//    private readonly ColumnExpression _jsonColumn;
+//    private readonly IReadOnlyDictionary<IProperty, ColumnExpression> _propertyExpressionMap; // key properties that get mapped to normal columns
+//    private readonly IReadOnlyDictionary<IProperty, string> _propertyToJsonPathMap; // regular properties of the json-mapped entity, they are mapped into a json column with a specific json path
+//    private readonly Dictionary<INavigation, (string, EntityShaperExpression)> _ownedNavigationMap = new(); // nested owned navigations - entity shaper 
 
-    /// <summary>
-    ///     TODO
-    /// </summary>
-    public EntityMappedToJsonProjectionExpression(
-        IEntityType entityType,
-        ColumnExpression jsonColumn,
-        IReadOnlyDictionary<IProperty, ColumnExpression> propertyExpressionMap,
-        IReadOnlyDictionary<IProperty, string> propertyToJsonPathMap)
-    {
-        EntityType = entityType;
-        _jsonColumn = jsonColumn;
-        _propertyExpressionMap = propertyExpressionMap;
-        _propertyToJsonPathMap = propertyToJsonPathMap;
-    }
+//    /// <summary>
+//    ///     TODO
+//    /// </summary>
+//    public EntityMappedToJsonProjectionExpression(
+//        IEntityType entityType,
+//        ColumnExpression jsonColumn,
+//        IReadOnlyDictionary<IProperty, ColumnExpression> propertyExpressionMap,
+//        IReadOnlyDictionary<IProperty, string> propertyToJsonPathMap)
+//    {
+//        EntityType = entityType;
+//        _jsonColumn = jsonColumn;
+//        _propertyExpressionMap = propertyExpressionMap;
+//        _propertyToJsonPathMap = propertyToJsonPathMap;
+//    }
 
-    /// <summary>
-    ///     The entity type being projected out.
-    /// </summary>
-    public virtual IEntityType EntityType { get; }
+//    /// <summary>
+//    ///     The entity type being projected out.
+//    /// </summary>
+//    public virtual IEntityType EntityType { get; }
 
-    /// <inheritdoc />
-    public sealed override ExpressionType NodeType
-        => ExpressionType.Extension;
+//    /// <inheritdoc />
+//    public sealed override ExpressionType NodeType
+//        => ExpressionType.Extension;
 
-    /// <inheritdoc />
-    public override Type Type
-        => EntityType.ClrType;
+//    /// <inheritdoc />
+//    public override Type Type
+//        => EntityType.ClrType;
 
-    /// <inheritdoc />
-    protected override Expression VisitChildren(ExpressionVisitor visitor)
-    {
-        var changed = false;
+//    /// <inheritdoc />
+//    protected override Expression VisitChildren(ExpressionVisitor visitor)
+//    {
+//        var changed = false;
 
-        var jsonColumn = (ColumnExpression)visitor.Visit(_jsonColumn);
-        changed |= jsonColumn != _jsonColumn;
+//        var jsonColumn = (ColumnExpression)visitor.Visit(_jsonColumn);
+//        changed |= jsonColumn != _jsonColumn;
 
-        var propertyExpressionMap = new Dictionary<IProperty, ColumnExpression>();
-        foreach (var (property, columnExpression) in _propertyExpressionMap)
-        {
-            var newExpression = (ColumnExpression)visitor.Visit(columnExpression);
-            changed |= newExpression != columnExpression;
+//        var propertyExpressionMap = new Dictionary<IProperty, ColumnExpression>();
+//        foreach (var (property, columnExpression) in _propertyExpressionMap)
+//        {
+//            var newExpression = (ColumnExpression)visitor.Visit(columnExpression);
+//            changed |= newExpression != columnExpression;
 
-            propertyExpressionMap[property] = newExpression;
-        }
+//            propertyExpressionMap[property] = newExpression;
+//        }
 
-        return changed
-            ? new EntityMappedToJsonProjectionExpression(EntityType, jsonColumn, propertyExpressionMap, _propertyToJsonPathMap)
-            : this;
-    }
+//        return changed
+//            ? new EntityMappedToJsonProjectionExpression(EntityType, jsonColumn, propertyExpressionMap, _propertyToJsonPathMap)
+//            : this;
+//    }
 
-    /// <summary>
-    ///     TODO
-    /// </summary>
-    public virtual void AddNavigationBinding(INavigation navigation, string jsonPath, EntityShaperExpression entityShaper)
-    {
-        if (!EntityType.IsAssignableFrom(navigation.DeclaringEntityType)
-            && !navigation.DeclaringEntityType.IsAssignableFrom(EntityType))
-        {
-            throw new InvalidOperationException(
-                RelationalStrings.UnableToBindMemberToEntityProjection("navigation", navigation.Name, EntityType.DisplayName()));
-        }
+//    /// <summary>
+//    ///     TODO
+//    /// </summary>
+//    public virtual void AddNavigationBinding(INavigation navigation, string jsonPath, EntityShaperExpression entityShaper)
+//    {
+//        if (!EntityType.IsAssignableFrom(navigation.DeclaringEntityType)
+//            && !navigation.DeclaringEntityType.IsAssignableFrom(EntityType))
+//        {
+//            throw new InvalidOperationException(
+//                RelationalStrings.UnableToBindMemberToEntityProjection("navigation", navigation.Name, EntityType.DisplayName()));
+//        }
 
-        _ownedNavigationMap[navigation] = (jsonPath, entityShaper);
-    }
+//        _ownedNavigationMap[navigation] = (jsonPath, entityShaper);
+//    }
 
-    ///// <summary>
-    /////     TODO
-    ///// </summary>
-    //public virtual EntityShaperExpression? BindNavigation(INavigation navigation)
-    //{
-    //    if (!EntityType.IsAssignableFrom(navigation.DeclaringEntityType)
-    //        && !navigation.DeclaringEntityType.IsAssignableFrom(EntityType))
-    //    {
-    //        throw new InvalidOperationException(
-    //            RelationalStrings.UnableToBindMemberToEntityProjection("navigation", navigation.Name, EntityType.DisplayName()));
-    //    }
+//    ///// <summary>
+//    /////     TODO
+//    ///// </summary>
+//    //public virtual EntityShaperExpression? BindNavigation(INavigation navigation)
+//    //{
+//    //    if (!EntityType.IsAssignableFrom(navigation.DeclaringEntityType)
+//    //        && !navigation.DeclaringEntityType.IsAssignableFrom(EntityType))
+//    //    {
+//    //        throw new InvalidOperationException(
+//    //            RelationalStrings.UnableToBindMemberToEntityProjection("navigation", navigation.Name, EntityType.DisplayName()));
+//    //    }
 
-    //    return _ownedNavigationMap.TryGetValue(navigation, out var expression)
-    //        ? expression
-    //        : null;
-    //}
+//    //    return _ownedNavigationMap.TryGetValue(navigation, out var expression)
+//    //        ? expression
+//    //        : null;
+//    //}
 
-    /// <inheritdoc />
-    public override string ToString()
-        => $"EntityMappedToJsonProjectionExpression: {EntityType.ShortName()}";
-}
+//    /// <inheritdoc />
+//    public override string ToString()
+//        => $"EntityMappedToJsonProjectionExpression: {EntityType.ShortName()}";
+//}
 
 /// <summary>
 ///     <para>
@@ -117,6 +117,10 @@ public class EntityProjectionExpression : Expression
     private readonly IReadOnlyDictionary<IPropertyBase, ColumnExpression> _propertyExpressionMap;
     private readonly Dictionary<INavigation, EntityShaperExpression> _ownedNavigationMap = new();
 
+    private readonly IReadOnlyDictionary<IPropertyBase, string> _jsonPropertyPathMap;
+
+
+
     /// <summary>
     ///     Creates a new instance of the <see cref="EntityProjectionExpression" /> class.
     /// </summary>
@@ -131,6 +135,25 @@ public class EntityProjectionExpression : Expression
         EntityType = entityType;
         _propertyExpressionMap = propertyExpressionMap;
         DiscriminatorExpression = discriminatorExpression;
+
+        _jsonPropertyPathMap = new Dictionary<IPropertyBase, string>();
+    }
+
+    /// <summary>
+    ///     TODO
+    /// </summary>
+    public EntityProjectionExpression(
+        IEntityType entityType,
+        ColumnExpression jsonColumn,
+        IReadOnlyDictionary<IPropertyBase, ColumnExpression> propertyExpressionMap,
+        IReadOnlyDictionary<IPropertyBase, string> jsonPropertyPathMap)
+    {
+        EntityType = entityType;
+        _propertyExpressionMap = propertyExpressionMap;
+        DiscriminatorExpression = null;
+
+        JsonColumn = jsonColumn;
+        _jsonPropertyPathMap = jsonPropertyPathMap;
     }
 
     /// <summary>
@@ -142,6 +165,11 @@ public class EntityProjectionExpression : Expression
     ///     A <see cref="SqlExpression" /> to generate discriminator for entity type.
     /// </summary>
     public virtual SqlExpression? DiscriminatorExpression { get; }
+
+    /// <summary>
+    ///     TODO
+    /// </summary>
+    public virtual ColumnExpression? JsonColumn { get; }
 
     /// <inheritdoc />
     public sealed override ExpressionType NodeType
@@ -242,6 +270,11 @@ public class EntityProjectionExpression : Expression
         {
             throw new InvalidOperationException(
                 RelationalStrings.UnableToBindMemberToEntityProjection("property", property.Name, EntityType.DisplayName()));
+        }
+
+        if (_jsonPropertyPathMap.ContainsKey(property))
+        {
+            return JsonColumn!;
         }
 
         return _propertyExpressionMap[property];
