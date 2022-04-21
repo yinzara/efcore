@@ -114,12 +114,9 @@ namespace Microsoft.EntityFrameworkCore.Query;
 /// </summary>
 public class EntityProjectionExpression : Expression
 {
-    private readonly IReadOnlyDictionary<IPropertyBase, ColumnExpression> _propertyExpressionMap;
+    private readonly IReadOnlyDictionary<IPropertyBase, SqlExpression> _propertyExpressionMap;
     private readonly Dictionary<INavigation, EntityShaperExpression> _ownedNavigationMap = new();
-
-    private readonly IReadOnlyDictionary<IPropertyBase, string> _jsonPropertyPathMap;
-
-
+    private readonly IReadOnlyDictionary<IPropertyBase, SqlExpression> _jsonPropertyPathMap;
 
     /// <summary>
     ///     Creates a new instance of the <see cref="EntityProjectionExpression" /> class.
@@ -129,32 +126,32 @@ public class EntityProjectionExpression : Expression
     /// <param name="discriminatorExpression">A <see cref="SqlExpression" /> to generate discriminator for each concrete entity type in hierarchy.</param>
     public EntityProjectionExpression(
         IEntityType entityType,
-        IReadOnlyDictionary<IPropertyBase, ColumnExpression> propertyExpressionMap,
+        IReadOnlyDictionary<IPropertyBase, SqlExpression> propertyExpressionMap,
         SqlExpression? discriminatorExpression = null)
     {
         EntityType = entityType;
         _propertyExpressionMap = propertyExpressionMap;
         DiscriminatorExpression = discriminatorExpression;
 
-        _jsonPropertyPathMap = new Dictionary<IPropertyBase, string>();
+        _jsonPropertyPathMap = new Dictionary<IPropertyBase, SqlExpression>();
     }
 
-    /// <summary>
-    ///     TODO
-    /// </summary>
-    public EntityProjectionExpression(
-        IEntityType entityType,
-        ColumnExpression jsonColumn,
-        IReadOnlyDictionary<IPropertyBase, ColumnExpression> propertyExpressionMap,
-        IReadOnlyDictionary<IPropertyBase, string> jsonPropertyPathMap)
-    {
-        EntityType = entityType;
-        _propertyExpressionMap = propertyExpressionMap;
-        DiscriminatorExpression = null;
+    ///// <summary>
+    /////     TODO
+    ///// </summary>
+    //public EntityProjectionExpression(
+    //    IEntityType entityType,
+    //    ColumnExpression jsonColumn,
+    //    IReadOnlyDictionary<IPropertyBase, ColumnExpression> propertyExpressionMap,
+    //    IReadOnlyDictionary<IPropertyBase, SqlExpression> jsonPropertyPathMap)
+    //{
+    //    EntityType = entityType;
+    //    _propertyExpressionMap = propertyExpressionMap;
+    //    DiscriminatorExpression = null;
 
-        JsonColumn = jsonColumn;
-        _jsonPropertyPathMap = jsonPropertyPathMap;
-    }
+    //    JsonColumn = jsonColumn;
+    //    _jsonPropertyPathMap = jsonPropertyPathMap;
+    //}
 
     /// <summary>
     ///     The entity type being projected out.
@@ -183,7 +180,7 @@ public class EntityProjectionExpression : Expression
     protected override Expression VisitChildren(ExpressionVisitor visitor)
     {
         var changed = false;
-        var propertyExpressionMap = new Dictionary<IPropertyBase, ColumnExpression>();
+        var propertyExpressionMap = new Dictionary<IPropertyBase, SqlExpression>();
         foreach (var (property, columnExpression) in _propertyExpressionMap)
         {
             var newExpression = (ColumnExpression)visitor.Visit(columnExpression);
@@ -206,10 +203,12 @@ public class EntityProjectionExpression : Expression
     /// <returns>A new entity projection expression which can project nullable entity.</returns>
     public virtual EntityProjectionExpression MakeNullable()
     {
-        var propertyExpressionMap = new Dictionary<IPropertyBase, ColumnExpression>();
-        foreach (var (property, columnExpression) in _propertyExpressionMap)
+        var propertyExpressionMap = new Dictionary<IPropertyBase, SqlExpression>();
+        foreach (var (property, sqlExpression) in _propertyExpressionMap)
         {
-            propertyExpressionMap[property] = columnExpression.MakeNullable();
+            // maumar: fix this for json (i.e. when the sql expression is not a column
+            var nullable = (sqlExpression as ColumnExpression)?.MakeNullable() ?? sqlExpression;
+            propertyExpressionMap[property] = nullable;
         }
 
         // We don't need to process DiscriminatorExpression because they are already nullable
@@ -230,7 +229,7 @@ public class EntityProjectionExpression : Expression
                     derivedType.DisplayName(), EntityType.DisplayName()));
         }
 
-        var propertyExpressionMap = new Dictionary<IPropertyBase, ColumnExpression>();
+        var propertyExpressionMap = new Dictionary<IPropertyBase, SqlExpression>();
         foreach (var (property, columnExpression) in _propertyExpressionMap)
         {
             // maumar:
@@ -263,7 +262,22 @@ public class EntityProjectionExpression : Expression
     /// </summary>
     /// <param name="property">A property to bind.</param>
     /// <returns>A column which is a SQL representation of the property.</returns>
-    public virtual ColumnExpression BindProperty(IProperty property)
+    public virtual ColumnExpression BindKeyProperty(IProperty property)
+    {
+        if (!EntityType.IsAssignableFrom(property.DeclaringEntityType)
+            && !property.DeclaringEntityType.IsAssignableFrom(EntityType))
+        {
+            throw new InvalidOperationException(
+                RelationalStrings.UnableToBindMemberToEntityProjection("property", property.Name, EntityType.DisplayName()));
+        }
+
+        return (ColumnExpression)_propertyExpressionMap[property];
+    }
+
+    /// <summary>
+    ///     TODO
+    /// </summary>
+    public virtual SqlExpression BindProperty2(IProperty property)
     {
         if (!EntityType.IsAssignableFrom(property.DeclaringEntityType)
             && !property.DeclaringEntityType.IsAssignableFrom(EntityType))

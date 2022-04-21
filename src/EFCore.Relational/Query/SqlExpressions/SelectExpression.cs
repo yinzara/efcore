@@ -109,7 +109,7 @@ public sealed partial class SelectExpression : TableExpressionBase
             var tableReferenceExpression = new TableReferenceExpression(this, tableExpression.Alias!);
             AddTable(tableExpression, tableReferenceExpression);
 
-            var propertyExpressions = new Dictionary<IPropertyBase, ColumnExpression>();
+            var propertyExpressions = new Dictionary<IPropertyBase, SqlExpression>();
             foreach (var property in GetAllPropertiesInHierarchy(entityType))
             {
                 propertyExpressions[property] = CreateColumnExpression(property, table, tableReferenceExpression, nullable: false);
@@ -138,7 +138,8 @@ public sealed partial class SelectExpression : TableExpressionBase
             {
                 foreach (var property in primaryKey.Properties)
                 {
-                    _identifier.Add((propertyExpressions[property], property.GetKeyValueComparer()));
+                    // maumar - mapping is guaranteed to be a column since its a key mapping
+                    _identifier.Add(((ColumnExpression)propertyExpressions[property], property.GetKeyValueComparer()));
                 }
             }
         }
@@ -148,7 +149,7 @@ public sealed partial class SelectExpression : TableExpressionBase
             var keyProperties = entityType.FindPrimaryKey()!.Properties;
             List<ColumnExpression> joinColumns = default!;
             var tables = new List<ITableBase>();
-            var columns = new Dictionary<IPropertyBase, ColumnExpression>();
+            var columns = new Dictionary<IPropertyBase, SqlExpression>();
             foreach (var baseType in entityType.GetAllBaseTypesInclusive())
             {
                 var table = baseType.GetViewOrTableMappings().Single(m => !tables.Contains(m.Table)).Table;
@@ -167,7 +168,8 @@ public sealed partial class SelectExpression : TableExpressionBase
                     joinColumns = new List<ColumnExpression>();
                     foreach (var property in keyProperties)
                     {
-                        var columnExpression = columns[property];
+                        // maumar - guaranteed to be column expression since its a key property
+                        var columnExpression = (ColumnExpression)columns[property];
                         joinColumns.Add(columnExpression);
                         _identifier.Add((columnExpression, property.GetKeyValueComparer()));
                     }
@@ -245,7 +247,7 @@ public sealed partial class SelectExpression : TableExpressionBase
         var tableReferenceExpression = new TableReferenceExpression(this, tableExpressionBase.Alias!);
         AddTable(tableExpressionBase, tableReferenceExpression);
 
-        var propertyExpressions = new Dictionary<IPropertyBase, ColumnExpression>();
+        var propertyExpressions = new Dictionary<IPropertyBase, SqlExpression>();
 
         // maumar:
         // TODO: fix this just like we did above!
@@ -262,7 +264,8 @@ public sealed partial class SelectExpression : TableExpressionBase
         {
             foreach (var property in primaryKey.Properties)
             {
-                _identifier.Add((propertyExpressions[property], property.GetKeyValueComparer()));
+                // maumar: guaranteed to be ColumnExpression since it's key property
+                _identifier.Add(((ColumnExpression)propertyExpressions[property], property.GetKeyValueComparer()));
             }
         }
     }
@@ -365,7 +368,7 @@ public sealed partial class SelectExpression : TableExpressionBase
                     Check.DebugAssert(primaryKey != null, "primary key is null.");
                     foreach (var property in primaryKey.Properties)
                     {
-                        entityProjectionIdentifiers.Add(entityProjection.BindProperty(property));
+                        entityProjectionIdentifiers.Add(entityProjection.BindKeyProperty(property));
                         entityProjectionValueComparers.Add(property.GetKeyValueComparer());
                     }
                 }
@@ -463,7 +466,7 @@ public sealed partial class SelectExpression : TableExpressionBase
         {
             foreach (var property in GetAllPropertiesInHierarchy(entityProjectionExpression.EntityType))
             {
-                AddToProjection(entityProjectionExpression.BindProperty(property), null);
+                AddToProjection(entityProjectionExpression.BindProperty2(property), null);
             }
 
             if (entityProjectionExpression.DiscriminatorExpression != null)
@@ -1077,12 +1080,35 @@ public sealed partial class SelectExpression : TableExpressionBase
             var dictionary = new Dictionary<IProperty, int>();
             foreach (var property in GetAllPropertiesInHierarchy(entityProjectionExpression.EntityType))
             {
-                dictionary[property] = AddToProjection(entityProjectionExpression.BindProperty(property), null);
+                dictionary[property] = AddToProjection(entityProjectionExpression.BindProperty2(property), null);
             }
 
             if (entityProjectionExpression.DiscriminatorExpression != null)
             {
                 AddToProjection(entityProjectionExpression.DiscriminatorExpression, DiscriminatorColumnAlias);
+            }
+
+            if (!entityProjectionExpression.EntityType.MappedToJson())
+            {
+                return Constant(dictionary);
+            }
+
+            var jsonMapping = new Dictionary<IProperty, string[]>();
+            if (entityProjectionExpression.EntityType.MappedToJson())
+            {
+                foreach (var property in GetAllPropertiesInHierarchy(entityProjectionExpression.EntityType))
+                {
+                    if (property.IsPrimaryKey())
+                    {
+                        continue;
+                    }
+
+
+
+                    var foo = AddToProjection(entityProjectionExpression.BindProperty2(property), null);
+//                    jsonMapping[property] = 
+                }
+
             }
 
             return Constant(dictionary);
@@ -1740,16 +1766,29 @@ public sealed partial class SelectExpression : TableExpressionBase
                 throw new InvalidOperationException(RelationalStrings.SetOperationsOnDifferentStoreTypes);
             }
 
-            var propertyExpressions = new Dictionary<IPropertyBase, ColumnExpression>();
+            var propertyExpressions = new Dictionary<IPropertyBase, SqlExpression>();
             foreach (var property in GetAllPropertiesInHierarchy(projection1.EntityType))
             {
-                var column1 = projection1.BindProperty(property);
-                var column2 = projection2.BindProperty(property);
+                var binding1 = projection1.BindProperty2(property);
+                var binding2 = projection2.BindProperty2(property);
+
+                // maumar - TEMPORARY HACK!!!!
+                var column1 = (ColumnExpression)binding1;
+                var column2 = (ColumnExpression)binding2;
+
                 var alias = GenerateUniqueColumnAlias(column1.Name);
-                var innerProjection = new ProjectionExpression(column1, alias);
+                //var alias = GenerateUniqueColumnAlias(binding1 is ColumnExpression column1 ? column1.Name : property.Name);
+                var innerProjection = new ProjectionExpression(binding1, alias);
                 select1._projection.Add(innerProjection);
-                select2._projection.Add(new ProjectionExpression(column2, alias));
+                select2._projection.Add(new ProjectionExpression(binding2, alias));
                 var outerExpression = new ConcreteColumnExpression(innerProjection, tableReferenceExpression);
+
+                //if (binding1 is not ColumnExpression || ((ColumnExpression)binding1).IsNullable
+                //    || binding2 is not ColumnExpression || ((ColumnExpression)binding2).IsNullable)
+                //{
+                //    outerExpression = outerExpression.MakeNullable();
+                //}
+
                 if (column1.IsNullable
                     || column2.IsNullable)
                 {
@@ -1799,7 +1838,7 @@ public sealed partial class SelectExpression : TableExpressionBase
                 Check.DebugAssert(primaryKey != null, "primary key is null.");
                 foreach (var property in primaryKey.Properties)
                 {
-                    entityProjectionIdentifiers.Add(entityProjection.BindProperty(property));
+                    entityProjectionIdentifiers.Add(entityProjection.BindKeyProperty(property));
                     entityProjectionValueComparers.Add(property.GetKeyValueComparer());
                 }
             }
@@ -1934,7 +1973,7 @@ public sealed partial class SelectExpression : TableExpressionBase
             return selectExpression._tableReferences[tableIndex];
         }
 
-        static IReadOnlyDictionary<IPropertyBase, ColumnExpression>? GetPropertyExpressionFromSameTable(
+        static IReadOnlyDictionary<IPropertyBase, SqlExpression>? GetPropertyExpressionFromSameTable(
             IEntityType entityType,
             ITableBase table,
             SelectExpression selectExpression,
@@ -1957,7 +1996,7 @@ public sealed partial class SelectExpression : TableExpressionBase
                             });
                 }
 
-                var propertyExpressions = new Dictionary<IPropertyBase, ColumnExpression>();
+                var propertyExpressions = new Dictionary<IPropertyBase, SqlExpression>();
                 var tableReferenceExpression = FindTableReference(selectExpression, tableExpressionBase);
                 foreach (var property in entityType
                              .GetAllBaseTypes().Concat(entityType.GetDerivedTypesInclusive())
@@ -1983,7 +2022,7 @@ public sealed partial class SelectExpression : TableExpressionBase
                     return null;
                 }
 
-                var newPropertyExpressions = new Dictionary<IPropertyBase, ColumnExpression>();
+                var newPropertyExpressions = new Dictionary<IPropertyBase, SqlExpression>();
                 var tableReferenceExpression = FindTableReference(selectExpression, tableExpressionBase);
                 foreach (var (property, columnExpression) in subqueryPropertyExpressions)
                 {
@@ -1996,12 +2035,12 @@ public sealed partial class SelectExpression : TableExpressionBase
             return null;
         }
 
-        static IReadOnlyDictionary<IPropertyBase, ColumnExpression> GetPropertyExpressionsFromJoinedTable(
+        static IReadOnlyDictionary<IPropertyBase, SqlExpression> GetPropertyExpressionsFromJoinedTable(
             IEntityType entityType,
             ITableBase table,
             TableReferenceExpression tableReferenceExpression)
         {
-            var propertyExpressions = new Dictionary<IPropertyBase, ColumnExpression>();
+            var propertyExpressions = new Dictionary<IPropertyBase, SqlExpression>();
             foreach (var property in entityType
                          .GetAllBaseTypes().Concat(entityType.GetDerivedTypesInclusive())
                          .SelectMany(t => t.GetDeclaredProperties()))
@@ -2026,8 +2065,7 @@ public sealed partial class SelectExpression : TableExpressionBase
         string jsonColumnName,
         RelationalTypeMapping jsonColumnTypeMapping,
         ITableBase table,
-        TableExpressionBase tableExpressionBase,
-        bool nullable = true)
+        TableExpressionBase tableExpressionBase)
     {
         var jsonColumn = new ConcreteColumnExpression(
             jsonColumnName,
@@ -2036,14 +2074,15 @@ public sealed partial class SelectExpression : TableExpressionBase
             jsonColumnTypeMapping,
             nullable: true);
 
-        var keyPropertiesMap = GetKeyPropertiesForEntityMappedToJson(entityType, table, FindTableReference(this, tableExpressionBase));
-        var jsonPropertyPathMap = GetJsonPropertyPathMap(entityType);
+        //var keyPropertiesMap = GetKeyPropertiesForEntityMappedToJson(entityType, table, FindTableReference(this, tableExpressionBase));
+        //var jsonPropertyPathMap = GetJsonPropertyPathMap(entityType, jsonColumn);
 
-        return new EntityProjectionExpression(
-            entityType,
-            jsonColumn,
-            keyPropertiesMap,
-            jsonPropertyPathMap);
+        var propertyExpressionMap = GetPropertyPathMap(entityType, table, FindTableReference(this, tableExpressionBase), jsonColumn);
+
+        // maumar: TODO fix!!!!
+        var discrminator = default(SqlExpression);
+
+        return new EntityProjectionExpression(entityType, propertyExpressionMap, discrminator);
 
         static TableReferenceExpression FindTableReference(SelectExpression selectExpression, TableExpressionBase tableExpression)
         {
@@ -2052,48 +2091,135 @@ public sealed partial class SelectExpression : TableExpressionBase
             return selectExpression._tableReferences[tableIndex];
         }
 
-        static IReadOnlyDictionary<IPropertyBase, ColumnExpression> GetKeyPropertiesForEntityMappedToJson(
+        static IReadOnlyDictionary<IPropertyBase, SqlExpression> GetPropertyPathMap(
             IEntityType entityType,
             ITableBase table,
-            TableReferenceExpression tableReferenceExpression)
+            TableReferenceExpression tableReferenceExpression,
+            ColumnExpression jsonColumn)
         {
-            var propertyExpressions = new Dictionary<IPropertyBase, ColumnExpression>();
-            foreach (var property in entityType.GetForeignKeyProperties())
+            var propertyExpressions = new Dictionary<IPropertyBase, SqlExpression>();
+
+            foreach (var property in entityType
+                         .GetAllBaseTypes().Concat(entityType.GetDerivedTypesInclusive())
+                         .SelectMany(t => t.GetDeclaredProperties()))
             {
-                propertyExpressions[property] = new ConcreteColumnExpression(
-                    property, table.FindColumn(property)!, tableReferenceExpression, nullable: true);
+                if (property.IsForeignKey())
+                {
+                    propertyExpressions[property] = new ConcreteColumnExpression(
+                        property, table.FindColumn(property)!, tableReferenceExpression, nullable: true);
+                }
+                else
+                {
+                    // maumar - TODO: what about ordinal PK in collection?
+                    var jsonEntityPath = GetJsonPathForEntity(entityType);
+                    var jsonPropertyPath = @$".""{property.Name}""";
+                    var jsonPath = "$" + (string.IsNullOrEmpty(jsonEntityPath) ? jsonPropertyPath : jsonEntityPath + jsonPropertyPath);
+                    //var pathExpression = new SqlConstantExpression(Constant(jsonPath.ToLower()), null);
+
+                    propertyExpressions[property] = new SqlUnaryExpression(
+                        ExpressionType.Convert,
+                        new SqlFunctionExpression(
+                            "JSON_VALUE",
+                            new SqlExpression[] { jsonColumn, new SqlFragmentExpression("'" + jsonPath + "'") },
+                            true,
+                            new bool[] { true, false },
+                            property.ClrType, null),
+                        property.ClrType,
+                        null);
+
+                    //propertyExpressions[property] = new SqlFunctionExpression(
+                    //    // maumar - hack - fix the apply default mapping instead
+                    //    "JSON_VALUE", new SqlExpression[] { jsonColumn, new SqlFragmentExpression("'" + jsonPath + "'") }, true, new bool[] { true, false }, property.ClrType, null);
+                    //    //"JSON_VALUE",
+                    //    //new SqlExpression[] { jsonColumn, new SqlConstantExpression(Constant(jsonPath.ToLower()), null) },
+                    //    //true,
+                    //    //new bool[] { true, false },
+                    //    //property.ClrType,
+                    //    //null);
+                }
             }
 
             return propertyExpressions;
         }
 
-        static IReadOnlyDictionary<IPropertyBase, string> GetJsonPropertyPathMap(IEntityType entityType)
+        static string GetJsonPathForEntity(IEntityType entityType)
         {
-            var result = new Dictionary<IPropertyBase, string>();
-
-            foreach (var property in entityType.GetProperties())
+            // maumar - todo - fix this logic, the way it's now is ugly, prolly do the check for parent before calling this method
+            if (!entityType.MappedToJson())
             {
-                if (property.IsForeignKey())
-                {
-                    continue;
-                }
-
-                if (property.IsPrimaryKey())
-                {
-                    // TODO: figure out how to mark it, maybe look at cosmos?
-                    result.Add(property, "[]");
-
-                    // PK that is not FK - it must be the collection ordinal key thing
-                    // maumar: TODO - this might not be happening for this code path - verify!!!!
-                }
-
-                // TODO: extract custom mapping
-                // also what to do when two properties only differ by casing (allowed in c#) - TEST!!!!
-                result.Add(property, property.Name.ToLower());
+                return string.Empty;
             }
 
-            return result;
+            // maumar - there should be only one (right??)
+            var foreignKey = entityType.GetForeignKeys().Single();
+
+            if (foreignKey.PrincipalEntityType.MappedToJson())
+            {
+                var parentPath = GetJsonPathForEntity(foreignKey.PrincipalEntityType);
+
+                return $@"{parentPath}.""{foreignKey.PrincipalToDependent?.Name}""";
+            }
+            else
+            {
+                return string.Empty;
+            }
+
+            //var parentPath = GetJsonPathForEntity(foreignKey.PrincipalEntityType);
+
+            //// maumar: surround in quotes just in case, we can improve that later
+            //// quotes are only needed if name contains some special sign like space or $
+            //return $@"{parentPath}.""{foreignKey.PrincipalToDependent?.Name}""";
         }
+
+
+        //static IReadOnlyDictionary<IPropertyBase, ColumnExpression> GetKeyPropertiesForEntityMappedToJson(
+        //    IEntityType entityType,
+        //    ITableBase table,
+        //    TableReferenceExpression tableReferenceExpression)
+        //{
+        //    var propertyExpressions = new Dictionary<IPropertyBase, ColumnExpression>();
+        //    foreach (var property in entityType.GetForeignKeyProperties())
+        //    {
+        //        propertyExpressions[property] = new ConcreteColumnExpression(
+        //            property, table.FindColumn(property)!, tableReferenceExpression, nullable: true);
+        //    }
+
+        //    return propertyExpressions;
+        //}
+
+        //static IReadOnlyDictionary<IPropertyBase, SqlExpression> GetJsonPropertyPathMap(IEntityType entityType, ColumnExpression jsonColumn)
+        //{
+        //    var foo = GetJsonPathForEntityProperty(entityType);
+
+        //    var result = new Dictionary<IPropertyBase, SqlExpression>();
+        //    foreach (var property in entityType.GetProperties())
+        //    {
+        //        if (property.IsForeignKey())
+        //        {
+        //            continue;
+        //        }
+
+        //        if (property.IsPrimaryKey())
+        //        {
+        //            // TODO: figure out how to mark it, maybe look at cosmos?
+        //            result.Add(property, new SqlConstantExpression(Constant("[]"), null));
+
+        //            // PK that is not FK - it must be the collection ordinal key thing
+        //            // maumar: TODO - this might not be happening for this code path - verify!!!!
+        //        }
+
+        //        // TODO: extract custom mapping
+        //        // also what to do when two properties only differ by casing (allowed in c#) - TEST!!!!
+        //        result.Add(property, new SqlConstantExpression(Constant(property.Name.ToLower()), null));
+        //    }
+
+        //    return result;
+        //}
+
+        //static string[]? GetJsonPathForEntityProperty(IEntityType entityType)
+        //{
+        //    return null;
+        //}
     }
 
     ///// <summary>
@@ -2538,7 +2664,7 @@ public sealed partial class SelectExpression : TableExpressionBase
                 // and based on that we determine whether we can convert from APPLY to JOIN
                 var projectionColumns = inner.Projection.Count > 0
                     ? inner.Projection.Select(p => p.Expression)
-                    : ExtractColumnsFromProjectionMapping(inner._projectionMapping);
+                    : ExtractPropertyBindingsFromProjectionMapping(inner._projectionMapping);
 
                 foreach (var innerColumn in innerKeyColumns)
                 {
@@ -2717,17 +2843,19 @@ public sealed partial class SelectExpression : TableExpressionBase
                 }
             }
 
-            static List<ColumnExpression> ExtractColumnsFromProjectionMapping(
+            // maumar - is it super necessary these are all columns?
+            // should be ok in terms of json stuff mapping to SqlExpression(jsonColumn, path), no?
+            static List<SqlExpression> ExtractPropertyBindingsFromProjectionMapping(
                 IDictionary<ProjectionMember, Expression> projectionMapping)
             {
-                var result = new List<ColumnExpression>();
+                var result = new List<SqlExpression>();
                 foreach (var (projectionMember, expression) in projectionMapping)
                 {
                     if (expression is EntityProjectionExpression entityProjection)
                     {
                         foreach (var property in GetAllPropertiesInHierarchy(entityProjection.EntityType))
                         {
-                            result.Add(entityProjection.BindProperty(property));
+                            result.Add(entityProjection.BindProperty2(property));
                         }
 
                         if (entityProjection.DiscriminatorExpression != null
@@ -3085,10 +3213,11 @@ public sealed partial class SelectExpression : TableExpressionBase
 
         EntityProjectionExpression LiftEntityProjectionFromSubquery(EntityProjectionExpression entityProjection)
         {
-            var propertyExpressions = new Dictionary<IPropertyBase, ColumnExpression>();
+            var propertyExpressions = new Dictionary<IPropertyBase, SqlExpression>();
             foreach (var property in GetAllPropertiesInHierarchy(entityProjection.EntityType))
             {
-                var innerColumn = entityProjection.BindProperty(property);
+                // maumar - TODO: need to change this?! (ask Smit)
+                var innerColumn = entityProjection.BindProperty2(property);
                 var outerColumn = subquery.GenerateOuterColumn(subqueryTableReferenceExpression, innerColumn);
                 projectionMap[innerColumn] = outerColumn;
                 propertyExpressions[property] = outerColumn;

@@ -1167,7 +1167,7 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                 {
                     // Mapped to same table
                     // We get identifying column to figure out tableExpression to pull columns from and nullability of most principal side
-                    var identifyingColumn = entityProjectionExpression.BindProperty(entityType.FindPrimaryKey()!.Properties.First());
+                    var identifyingColumn = entityProjectionExpression.BindKeyProperty(entityType.FindPrimaryKey()!.Properties.First());
                     var principalNullable = identifyingColumn.IsNullable
                         // Also make nullable if navigation is on derived type and and principal is TPT
                         // Since identifying PK would be non-nullable but principal can still be null
@@ -1190,8 +1190,7 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                             jsonColumnName!,
                             jsonColumnTypeMapping!,
                             table,
-                            identifyingColumn.Table,
-                            principalNullable);
+                            identifyingColumn.Table);
 
                         //var jsonQuery = _sqlExpressionFactory.Function(
                         //    "JSON_QUERY",
@@ -1291,7 +1290,7 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
             {
                 // just need any column - we use it only to extract the table it originated from
                 var sourceColumn = entityProjectionExpression
-                    .BindProperty(
+                    .BindKeyProperty(
                         navigation.IsOnDependent
                             ? foreignKey.Properties[0]
                             : foreignKey.PrincipalKey.Properties[0]);

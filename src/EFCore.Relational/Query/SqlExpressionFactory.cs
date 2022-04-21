@@ -62,6 +62,7 @@ public class SqlExpressionFactory : ISqlExpressionFactory
             SqlUnaryExpression e => ApplyTypeMappingOnSqlUnary(e, typeMapping),
             SqlConstantExpression e => e.ApplyTypeMapping(typeMapping),
             SqlFragmentExpression e => e,
+            // maumar - apply default mapping should apply it to arguments also, like we do for other expressions
             SqlFunctionExpression e => e.ApplyTypeMapping(typeMapping),
             SqlParameterExpression e => e.ApplyTypeMapping(typeMapping),
             InExpression e => ApplyTypeMappingOnIn(e),
@@ -656,9 +657,9 @@ public class SqlExpressionFactory : ISqlExpressionFactory
         var innerEntityProjection = GetMappedEntityProjectionExpression(innerSelect);
 
         var outerKey = (outerIsPrincipal ? foreignKey.PrincipalKey.Properties : foreignKey.Properties)
-            .Select(p => outerEntityProjection.BindProperty(p));
+            .Select(p => outerEntityProjection.BindProperty2(p));
         var innerKey = (outerIsPrincipal ? foreignKey.Properties : foreignKey.PrincipalKey.Properties)
-            .Select(p => innerEntityProjection.BindProperty(p));
+            .Select(p => innerEntityProjection.BindProperty2(p));
 
         var joinPredicate = outerKey.Zip(innerKey, Equal).Aggregate(AndAlso);
 
@@ -676,7 +677,7 @@ public class SqlExpressionFactory : ISqlExpressionFactory
             return false;
         }
 
-        var discriminatorColumn = GetMappedEntityProjectionExpression(selectExpression).BindProperty(discriminatorProperty);
+        var discriminatorColumn = GetMappedEntityProjectionExpression(selectExpression).BindProperty2(discriminatorProperty);
         var concreteEntityTypes = entityType.GetConcreteDerivedTypesInclusive().ToList();
         var predicate = concreteEntityTypes.Count == 1
             ? (SqlExpression)Equal(discriminatorColumn, Constant(concreteEntityTypes[0].GetDiscriminatorValue()))
@@ -729,5 +730,5 @@ public class SqlExpressionFactory : ISqlExpressionFactory
             new ProjectionBindingExpression(selectExpression, new ProjectionMember(), typeof(ValueBuffer)));
 
     private SqlExpression IsNotNull(IProperty property, EntityProjectionExpression entityProjection)
-        => IsNotNull(entityProjection.BindProperty(property));
+        => IsNotNull(entityProjection.BindProperty2(property));
 }
