@@ -14,7 +14,7 @@ namespace Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 /// </remarks>
 public sealed class ProjectionExpression : Expression, IPrintableExpression
 {
-    internal ProjectionExpression(SqlExpression expression, string alias)
+    internal ProjectionExpression(Expression expression, string alias)
     {
         Expression = expression;
         Alias = alias;
@@ -28,7 +28,7 @@ public sealed class ProjectionExpression : Expression, IPrintableExpression
     /// <summary>
     ///     The SQL value which is being projected.
     /// </summary>
-    public SqlExpression Expression { get; }
+    public Expression Expression { get; }
 
     /// <inheritdoc />
     public override Type Type

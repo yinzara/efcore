@@ -6,6 +6,43 @@ using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace Microsoft.EntityFrameworkCore.Query;
 
+
+/// <summary>
+/// TODO
+/// </summary>
+public class JsonEntityExpression : Expression
+{
+    //private List<string> _jsonPath = new();
+
+    /// <summary>
+    /// TODO
+    /// </summary>
+    public virtual ColumnExpression JsonColumn { get; }
+
+    /// <summary>
+    /// TODO
+    /// </summary>
+    public virtual IEntityType EntityType { get; }
+
+    /// <summary>
+    /// TODO
+    /// </summary>
+    public JsonEntityExpression(ColumnExpression jsonColumn, IEntityType entityType)
+    {
+        JsonColumn = jsonColumn;
+        EntityType = entityType;
+    }
+
+    /// <summary>
+    /// TODO
+    /// </summary>
+    public JsonEntityExpression AddPath(string pathSegment, IEntityType entityType)
+    {
+        // maumar TODO: add path 
+        return new JsonEntityExpression(JsonColumn, entityType);
+    }
+}
+
 ///// <summary>
 /////     TODO
 ///// </summary>

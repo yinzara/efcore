@@ -270,6 +270,22 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
             {
                 // TODO: Make this easier to understand some day.
                 EntityProjectionExpression entityProjectionExpression;
+
+                if (entityShaperExpression.ValueBufferExpression is JsonEntityExpression jsonEntityExpression)
+                {
+                    if (_indexBasedBinding)
+                    {
+                        var foo = AddClientProjection(jsonEntityExpression, typeof(ValueBuffer));
+ 
+                        return entityShaperExpression.Update(foo);
+                    }
+
+                    _projectionMapping[_projectionMembers.Peek()] = jsonEntityExpression;
+
+                    return entityShaperExpression.Update(
+                        new ProjectionBindingExpression(_selectExpression, _projectionMembers.Peek(), typeof(ValueBuffer)));
+                }
+
                 if (entityShaperExpression.ValueBufferExpression is ProjectionBindingExpression projectionBindingExpression)
                 {
                     if (projectionBindingExpression.ProjectionMember == null

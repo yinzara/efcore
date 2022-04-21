@@ -1022,7 +1022,7 @@ public sealed partial class SelectExpression : TableExpressionBase
                 for (var j = 0; j < projectionIndexMap.Length; j++)
                 {
                     var projection = MakeNullable(innerSelectExpression._projection[j].Expression, nullable: true);
-                    var index = AddToProjection(projection);
+                    var index = AddToProjection((SqlExpression)projection);
                     projectionIndexMap[j] = index;
                 }
 
@@ -1066,7 +1066,9 @@ public sealed partial class SelectExpression : TableExpressionBase
             {
                 result[projectionMember] = expression is EntityProjectionExpression entityProjection
                     ? AddEntityProjection(entityProjection)
-                    : Constant(AddToProjection((SqlExpression)expression, projectionMember.Last?.Name));
+                    : expression is JsonEntityExpression jsonEntityExpression
+                        ? Constant(AddToProjection(jsonEntityExpression, projectionMember.Last?.Name))
+                        : Constant(AddToProjection((SqlExpression)expression, projectionMember.Last?.Name));
             }
 
             _projectionMapping.Clear();
@@ -1126,7 +1128,8 @@ public sealed partial class SelectExpression : TableExpressionBase
         {
             Check.DebugAssert(
                 expression is SqlExpression
-                || expression is EntityProjectionExpression,
+                || expression is EntityProjectionExpression
+                || expression is JsonEntityExpression,
                 "Invalid operation in the projection.");
             _projectionMapping[projectionMember] = expression;
         }
@@ -1170,6 +1173,36 @@ public sealed partial class SelectExpression : TableExpressionBase
     /// <returns>An int value indicating the index at which the expression was added in the projection list.</returns>
     public int AddToProjection(SqlExpression sqlExpression)
         => AddToProjection(sqlExpression, null);
+
+    private int AddToProjection(JsonEntityExpression jsonEntityExpression, string? alias)
+    {
+        var existingIndex = _projection.FindIndex(pe => pe.Expression.Equals(jsonEntityExpression));
+        if (existingIndex != -1)
+        {
+            return existingIndex;
+        }
+
+        var baseAlias = alias;
+        if (Alias != null)
+        {
+            baseAlias ??= "c";
+            var counter = 0;
+
+            var currentAlias = baseAlias;
+            while (_projection.Any(pe => string.Equals(pe.Alias, currentAlias, StringComparison.OrdinalIgnoreCase)))
+            {
+                currentAlias = $"{baseAlias}{counter++}";
+            }
+
+            baseAlias = currentAlias;
+        }
+
+        _projection.Add(new ProjectionExpression(jsonEntityExpression, baseAlias ?? ""));
+
+        return _projection.Count - 1;
+    }
+
+
 
     private int AddToProjection(SqlExpression sqlExpression, string? alias, bool assignUniqueTableAlias = true)
     {
@@ -2050,6 +2083,40 @@ public sealed partial class SelectExpression : TableExpressionBase
             }
 
             return propertyExpressions;
+        }
+    }
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public JsonEntityExpression GenerateJsonEntityExpression(
+        IEntityType targetEntityType,
+        string jsonColumnName,
+        RelationalTypeMapping jsonColumnTypeMapping,
+        ITableBase table,
+        TableExpressionBase tableExpressionBase)
+    {
+        // TODO: store this in projection expression for the owner entity, when we build it in select constructor
+        var jsonColumn = new ConcreteColumnExpression(
+            jsonColumnName,
+            FindTableReference(this, tableExpressionBase),
+            typeof(JsonElement),
+            jsonColumnTypeMapping,
+            nullable: true);
+
+
+        var jsonEntityExpression = new JsonEntityExpression(jsonColumn!, targetEntityType);
+
+        return jsonEntityExpression;
+
+        static TableReferenceExpression FindTableReference(SelectExpression selectExpression, TableExpressionBase tableExpression)
+        {
+            var tableIndex = selectExpression._tables.FindIndex(e => ReferenceEquals(e, tableExpression));
+
+            return selectExpression._tableReferences[tableIndex];
         }
     }
 
@@ -3452,13 +3519,24 @@ public sealed partial class SelectExpression : TableExpressionBase
 
     private ConcreteColumnExpression GenerateOuterColumn(
         TableReferenceExpression tableReferenceExpression,
-        SqlExpression projection,
+        Expression projection,
         string? alias = null,
         bool assignUniqueTableAlias = true)
     {
         // TODO: Add check if we can add projection in subquery to generate out column
         // Subquery having Distinct or GroupBy can block it.
-        var index = AddToProjection(projection, alias, assignUniqueTableAlias);
+        int index;
+        if (projection is SqlExpression sqlExpression)
+        {
+            index = AddToProjection(sqlExpression, alias, assignUniqueTableAlias);
+        }
+        else if (projection is JsonEntityExpression jsonEntityExpression)
+        {
+            index = AddToProjection(jsonEntityExpression, alias);
+        }
+        else throw new InvalidOperationException("need either SqlExpression or JsonEntityExpression.");
+
+        //var index = AddToProjection(projection, alias, assignUniqueTableAlias);
 
         return new ConcreteColumnExpression(_projection[index], tableReferenceExpression);
     }

@@ -1082,12 +1082,12 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                 return null;
             }
 
+            if (entityShaperExpression.ValueBufferExpression is JsonEntityExpression jsonEntityExpression1)
+            {
+                return new EntityShaperExpression(targetEntityType, jsonEntityExpression1.AddPath(navigation.Name, targetEntityType), nullable: true);
+            }
+
             var entityProjectionExpression = GetEntityProjectionExpression(entityShaperExpression);
-
-
-
-
-
 
             var foreignKey = navigation.ForeignKey;
             if (navigation.IsCollection)
@@ -1185,12 +1185,23 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
 
                         var jsonColumn = table.Columns.Single(x => x.Name == jsonColumnName);
 
-                        entityProjection = _selectExpression.GenerateEntityMappedToJsonProjectionExpression(
+
+                        var jsonEntityExpression = _selectExpression.GenerateJsonEntityExpression(
                             targetEntityType,
                             jsonColumnName!,
                             jsonColumnTypeMapping!,
                             table,
                             identifyingColumn.Table);
+
+                        return new EntityShaperExpression(targetEntityType, jsonEntityExpression, true);
+
+
+                        //entityProjection = _selectExpression.GenerateEntityMappedToJsonProjectionExpression(
+                        //    targetEntityType,
+                        //    jsonColumnName!,
+                        //    jsonColumnTypeMapping!,
+                        //    table,
+                        //    identifyingColumn.Table);
 
                         //var jsonQuery = _sqlExpressionFactory.Function(
                         //    "JSON_QUERY",
