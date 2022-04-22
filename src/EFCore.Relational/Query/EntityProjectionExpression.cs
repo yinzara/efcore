@@ -10,9 +10,9 @@ namespace Microsoft.EntityFrameworkCore.Query;
 /// <summary>
 /// TODO
 /// </summary>
-public class JsonEntityExpression : Expression
+public class JsonEntityExpression : SqlExpression
 {
-    //private List<string> _jsonPath = new();
+    private readonly List<string> _jsonPath;
 
     /// <summary>
     /// TODO
@@ -27,10 +27,20 @@ public class JsonEntityExpression : Expression
     /// <summary>
     /// TODO
     /// </summary>
-    public JsonEntityExpression(ColumnExpression jsonColumn, IEntityType entityType)
+    public JsonEntityExpression(ColumnExpression jsonColumn, IEntityType entityType, Type type, RelationalTypeMapping? typeMapping)
+        : this (jsonColumn, entityType, type, typeMapping, new List<string>())
+    {
+    }
+
+    /// <summary>
+    /// TODO
+    /// </summary>
+    public JsonEntityExpression(ColumnExpression jsonColumn, IEntityType entityType, Type type, RelationalTypeMapping? typeMapping, List<string> jsonPath)
+        : base(type, typeMapping)
     {
         JsonColumn = jsonColumn;
         EntityType = entityType;
+        _jsonPath = jsonPath;
     }
 
     /// <summary>
@@ -38,8 +48,56 @@ public class JsonEntityExpression : Expression
     /// </summary>
     public JsonEntityExpression AddPath(string pathSegment, IEntityType entityType)
     {
-        // maumar TODO: add path 
-        return new JsonEntityExpression(JsonColumn, entityType);
+        var newPath = _jsonPath.ToList();
+        newPath.Add(pathSegment);
+
+        return new JsonEntityExpression(JsonColumn, entityType, Type, TypeMapping, newPath);
+    }
+
+    /// <summary>
+    /// TODO
+    /// </summary>
+    public SqlExpression BindProperty(IProperty property)
+    {
+        // maumar - make this nicer
+        var jsonPath = string.Join(".", _jsonPath);
+        if (!string.IsNullOrEmpty(jsonPath))
+        {
+            jsonPath = "$." + jsonPath;
+        }
+        else
+        {
+            jsonPath = "$";
+        }
+
+
+        jsonPath += "." + property.Name;
+
+        // TODO: make into constant rather than fragment later
+        // also this is sql server specific
+        // also make it into jsonpath access expression or some such
+        return new SqlUnaryExpression(
+            ExpressionType.Convert,
+            new SqlFunctionExpression(
+                "JSON_VALUE",
+                new SqlExpression[] { JsonColumn, new SqlFragmentExpression("'" + jsonPath + "'") },
+                true,
+                new bool[] { true, false },
+                property.ClrType, null),
+            property.ClrType,
+            null);
+    }
+
+    /// <inheritdoc />
+    protected override Expression VisitChildren(ExpressionVisitor visitor)
+        => this;
+
+    /// <summary>
+    /// TODO
+    /// </summary>
+    protected override void Print(ExpressionPrinter expressionPrinter)
+    {
+        expressionPrinter.Append("JsonEntityExpression(entity: " + EntityType.Name + "  Path: " + string.Join(".", _jsonPath));
     }
 }
 

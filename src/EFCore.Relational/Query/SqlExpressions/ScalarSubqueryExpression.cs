@@ -19,7 +19,7 @@ public class ScalarSubqueryExpression : SqlExpression
     /// </summary>
     /// <param name="subquery">A subquery projecting single row with a single scalar projection.</param>
     public ScalarSubqueryExpression(SelectExpression subquery)
-        : base(Verify(subquery).Projection[0].Type, subquery.Projection[0].Expression.TypeMapping)
+        : base(Verify(subquery).Projection[0].Type, ((SqlExpression)subquery.Projection[0].Expression).TypeMapping)
     {
         Subquery = subquery;
     }

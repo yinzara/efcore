@@ -2107,8 +2107,8 @@ public sealed partial class SelectExpression : TableExpressionBase
             jsonColumnTypeMapping,
             nullable: true);
 
-
-        var jsonEntityExpression = new JsonEntityExpression(jsonColumn!, targetEntityType);
+        // maumar - TODO: what should be the type here - jsonelement or something else? (target entity maybe???)
+        var jsonEntityExpression = new JsonEntityExpression(jsonColumn!, targetEntityType, typeof(JsonElement), jsonColumnTypeMapping);
 
         return jsonEntityExpression;
 

@@ -938,6 +938,12 @@ public class RelationalSqlTranslatingExpressionVisitor : ExpressionVisitor
                 return null;
             }
 
+            if (valueBufferExpression is JsonEntityExpression jsonEntityExpression)
+            {
+                return jsonEntityExpression.BindProperty(property);
+            }
+
+
             var entityProjectionExpression = (EntityProjectionExpression)valueBufferExpression;
             var propertyAccess = entityProjectionExpression.BindProperty2(property);
 

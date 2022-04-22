@@ -386,6 +386,13 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
                 {
                     if (!_variableShaperMapping.TryGetValue(entityShaperExpression.ValueBufferExpression, out var accessor))
                     {
+
+
+
+                        start here
+
+
+
                         var entityParameter = Expression.Parameter(entityShaperExpression.Type);
                         _variables.Add(entityParameter);
                         var entityMaterializationExpression = _parentVisitor.InjectEntityMaterializers(entityShaperExpression);
@@ -441,6 +448,9 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
 
                     var valueParameter = Expression.Parameter(projectionBindingExpression.Type);
                     _variables.Add(valueParameter);
+
+                    and here
+
 
                     _expressions.Add(
                         Expression.Assign(
@@ -883,7 +893,7 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
                     _dataReaderParameter,
                     projectionIndex,
                     nullable,
-                    projection.Expression.TypeMapping!,
+                    ((SqlExpression)projection.Expression).TypeMapping!,
                     methodCallExpression.Type,
                     property);
             }

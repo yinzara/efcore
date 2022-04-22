@@ -229,7 +229,7 @@ public class SqlExpressionFactory : ISqlExpressionFactory
         var itemTypeMapping = (inExpression.Values != null
                 ? ExpressionExtensions.InferTypeMapping(inExpression.Item, inExpression.Values)
                 : inExpression.Subquery != null
-                    ? ExpressionExtensions.InferTypeMapping(inExpression.Item, inExpression.Subquery.Projection[0].Expression)
+                    ? ExpressionExtensions.InferTypeMapping(inExpression.Item, (SqlExpression)inExpression.Subquery.Projection[0].Expression)
                     : inExpression.Item.TypeMapping)
             ?? Dependencies.TypeMappingSource.FindMapping(inExpression.Item.Type, Dependencies.Model);
 
@@ -550,7 +550,7 @@ public class SqlExpressionFactory : ISqlExpressionFactory
     public virtual InExpression In(SqlExpression item, SelectExpression subquery, bool negated)
     {
         var sqlExpression = subquery.Projection.Single().Expression;
-        var typeMapping = sqlExpression.TypeMapping;
+        var typeMapping = ((SqlExpression)sqlExpression).TypeMapping;
 
         item = ApplyTypeMapping(item, typeMapping);
         return new InExpression(item, subquery, negated, _boolTypeMapping);
