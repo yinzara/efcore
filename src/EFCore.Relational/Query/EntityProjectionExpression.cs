@@ -223,23 +223,6 @@ public class EntityProjectionExpression : Expression
         _jsonPropertyPathMap = new Dictionary<IPropertyBase, SqlExpression>();
     }
 
-    ///// <summary>
-    /////     TODO
-    ///// </summary>
-    //public EntityProjectionExpression(
-    //    IEntityType entityType,
-    //    ColumnExpression jsonColumn,
-    //    IReadOnlyDictionary<IPropertyBase, ColumnExpression> propertyExpressionMap,
-    //    IReadOnlyDictionary<IPropertyBase, SqlExpression> jsonPropertyPathMap)
-    //{
-    //    EntityType = entityType;
-    //    _propertyExpressionMap = propertyExpressionMap;
-    //    DiscriminatorExpression = null;
-
-    //    JsonColumn = jsonColumn;
-    //    _jsonPropertyPathMap = jsonPropertyPathMap;
-    //}
-
     /// <summary>
     ///     The entity type being projected out.
     /// </summary>

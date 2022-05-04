@@ -873,18 +873,6 @@ public static class RelationalEntityTypeExtensions
                 continue;
             }
 
-
-//            if (!foreignKey.PrincipalKey.IsPrimaryKey()
-//                || principalEntityType == foreignKey.DeclaringEntityType
-//                || !foreignKey.IsUnique
-//                //|| (!foreignKey.IsUnique && string.IsNullOrEmpty(mappedToJsonColumnName)) // non-unique key can map to the same table then the entity is mapped as json
-//#pragma warning disable EF1001 // Internal EF Core API usage.
-//                || !PropertyListComparer.Instance.Equals(foreignKey.Properties, primaryKey.Properties))
-//#pragma warning restore EF1001 // Internal EF Core API usage.
-//            {
-//                continue;
-//            }
-
             switch (storeObject.StoreObjectType)
             {
                 case StoreObjectType.Table:
