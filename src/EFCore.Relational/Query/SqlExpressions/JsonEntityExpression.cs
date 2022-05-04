@@ -27,6 +27,11 @@ namespace Microsoft.EntityFrameworkCore.Query.SqlExpressions
         /// </summary>
         public virtual IEntityType EntityType { get; }
 
+
+
+
+
+
         /// <summary>
         /// TODO
         /// </summary>
@@ -112,33 +117,10 @@ namespace Microsoft.EntityFrameworkCore.Query.SqlExpressions
                 return keyMapping;
             }
 
-            // maumar - make this nicer
-            var jsonPath = string.Join(".", _jsonPath);
-            if (!string.IsNullOrEmpty(jsonPath))
-            {
-                jsonPath = "$." + jsonPath;
-            }
-            else
-            {
-                jsonPath = "$";
-            }
+            var newJsonPath = _jsonPath.ToList();
+            newJsonPath.Add(property.Name);
 
-
-            jsonPath += "." + property.Name;
-
-            // TODO: make into constant rather than fragment later
-            // also this is sql server specific
-            // also make it into jsonpath access expression or some such
-            return new SqlUnaryExpression(
-                ExpressionType.Convert,
-                new SqlFunctionExpression(
-                    "JSON_VALUE",
-                    new SqlExpression[] { JsonColumn, new SqlFragmentExpression("'" + jsonPath + "'") },
-                    true,
-                    new bool[] { true, false },
-                    property.ClrType, null),
-                property.ClrType,
-                null);
+            return new JsonMappedPropertyExpression(JsonColumn, property.ClrType, null, newJsonPath);
         }
 
         /// <summary>

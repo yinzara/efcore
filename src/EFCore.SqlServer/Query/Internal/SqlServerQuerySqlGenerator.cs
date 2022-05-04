@@ -193,6 +193,36 @@ public class SqlServerQuerySqlGenerator : QuerySqlGenerator
     }
 
     /// <inheritdoc />
+    protected override Expression VisitJsonMappedPropertyExpression(JsonMappedPropertyExpression jsonMappedPropertyExpression)
+    {
+        Sql.Append("CAST(");
+        Sql.Append("JSON_VALUE(");
+        Visit(jsonMappedPropertyExpression.JsonColumn);
+        Sql.Append(",");
+
+
+        var jsonPath = string.Join(".", jsonMappedPropertyExpression.GetPath());
+        if (!string.IsNullOrEmpty(jsonPath))
+        {
+            jsonPath = "$." + jsonPath;
+        }
+        else
+        {
+            jsonPath = "$";
+        }
+
+        Sql.Append("'" + jsonPath + "'");
+        Sql.Append(")");
+
+        Sql.Append(" AS ");
+        Sql.Append(jsonMappedPropertyExpression.TypeMapping!.StoreType);
+        Sql.Append(")");
+
+        return base.VisitJsonMappedPropertyExpression(jsonMappedPropertyExpression);
+    }
+
+
+    /// <inheritdoc />
     protected override void CheckComposableSqlTrimmed(ReadOnlySpan<char> sql)
     {
         base.CheckComposableSqlTrimmed(sql);

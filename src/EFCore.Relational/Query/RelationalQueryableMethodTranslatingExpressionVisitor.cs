@@ -1130,6 +1130,84 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
             var foreignKey = navigation.ForeignKey;
             if (navigation.IsCollection)
             {
+                if (targetEntityType.MappedToJson())
+                {
+                    // Owned types don't support inheritance See https://github.com/dotnet/efcore/issues/9630
+                    // So there is no handling for dependent having TPT
+                    // If navigation is defined on derived type and entity type is part of TPT then we need to get ITableBase for derived type.
+                    // TODO: The following code should also handle Function and SqlQuery mappings
+                    var table = navigation.DeclaringEntityType.BaseType == null
+                        || entityType.FindDiscriminatorProperty() != null
+                            ? navigation.DeclaringEntityType.GetViewOrTableMappings().Single().Table
+                            : navigation.DeclaringEntityType.GetViewOrTableMappings().Select(tm => tm.Table)
+                                .Except(navigation.DeclaringEntityType.BaseType.GetViewOrTableMappings().Select(tm => tm.Table))
+                                .Single();
+
+                    // Mapped to same table
+                    // We get identifying column to figure out tableExpression to pull columns from and nullability of most principal side
+                    var identifyingColumn = entityProjectionExpression.BindKeyProperty(entityType.FindPrimaryKey()!.Properties.First());
+                    var principalNullable = identifyingColumn.IsNullable;
+
+                    var jsonColumnName = targetEntityType.GetAnnotation(RelationalAnnotationNames.MapToJsonColumnName).Value as string;
+                    var jsonColumnTypeMapping = targetEntityType.FindRuntimeAnnotationValue(RelationalAnnotationNames.MapToJsonTypeMapping) as RelationalTypeMapping;
+
+                    var jsonColumn = table.Columns.Single(x => x.Name == jsonColumnName);
+
+
+                    var jsonEntityExpression = _selectExpression.GenerateJsonEntityExpression(
+                        targetEntityType,
+                        jsonColumnName!,
+                        jsonColumnTypeMapping!,
+                        table,
+                        identifyingColumn.Table,
+                        // TODO: is this correct????
+                        principalNullable);
+
+                    var relationalEntityShaperExpression = new RelationalEntityShaperExpression(targetEntityType, jsonEntityExpression, false);
+
+
+
+                    var shapedQuery = new ShapedQueryExpression(jsonEntityExpression.JsonColumn, relationalEntityShaperExpression);
+
+
+                    entityProjectionExpression.AddNavigationBinding(navigation)
+
+
+
+
+
+            //selectExpression,
+            //new RelationalEntityShaperExpression(
+            //    entityType,
+            //    new ProjectionBindingExpression(
+            //        selectExpression,
+            //        new ProjectionMember(),
+            //        typeof(ValueBuffer)),
+            //    false));
+
+
+
+
+                    //var innerShaper = new RelationalEntityShaperExpression(targetEntityType, jsonEntityExpression, true);
+
+
+                    //entityProjectionExpression.AddNavigationBinding(navigation, innerShaper);
+
+
+
+
+
+
+
+
+                }
+
+
+
+
+
+
+
                 var innerSelectExpression = BuildInnerSelectExpressionForOwnedTypeMappedToDifferentTable(
                     entityProjectionExpression,
                     navigation);

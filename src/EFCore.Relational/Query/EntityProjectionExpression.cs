@@ -19,7 +19,10 @@ public class EntityProjectionExpression : Expression
 {
     private readonly IReadOnlyDictionary<IPropertyBase, SqlExpression> _propertyExpressionMap;
     private readonly Dictionary<INavigation, EntityShaperExpression> _ownedNavigationMap = new();
-    private readonly IReadOnlyDictionary<IPropertyBase, SqlExpression> _jsonPropertyPathMap;
+    private readonly Dictionary<INavigation, ShapedQueryExpression> _ownedCollectionNavigationMap = new();
+
+
+    //private readonly IReadOnlyDictionary<IPropertyBase, SqlExpression> _jsonPropertyPathMap;
 
     /// <summary>
     ///     Creates a new instance of the <see cref="EntityProjectionExpression" /> class.
@@ -36,7 +39,7 @@ public class EntityProjectionExpression : Expression
         _propertyExpressionMap = propertyExpressionMap;
         DiscriminatorExpression = discriminatorExpression;
 
-        _jsonPropertyPathMap = new Dictionary<IPropertyBase, SqlExpression>();
+        //_jsonPropertyPathMap = new Dictionary<IPropertyBase, SqlExpression>();
     }
 
     /// <summary>
@@ -172,10 +175,10 @@ public class EntityProjectionExpression : Expression
                 RelationalStrings.UnableToBindMemberToEntityProjection("property", property.Name, EntityType.DisplayName()));
         }
 
-        if (_jsonPropertyPathMap.ContainsKey(property))
-        {
-            return JsonColumn!;
-        }
+        //if (_jsonPropertyPathMap.ContainsKey(property))
+        //{
+        //    return JsonColumn!;
+        //}
 
         return _propertyExpressionMap[property];
     }
@@ -195,6 +198,22 @@ public class EntityProjectionExpression : Expression
         }
 
         _ownedNavigationMap[navigation] = entityShaper;
+    }
+
+
+    /// <summary>
+    ///     TODO
+    /// </summary>
+    public virtual void AddCollectionNavigationBinding(INavigation navigation, ShapedQueryExpression shapedQuery)
+    {
+        if (!EntityType.IsAssignableFrom(navigation.DeclaringEntityType)
+            && !navigation.DeclaringEntityType.IsAssignableFrom(EntityType))
+        {
+            throw new InvalidOperationException(
+                RelationalStrings.UnableToBindMemberToEntityProjection("navigation", navigation.Name, EntityType.DisplayName()));
+        }
+
+        _ownedCollectionNavigationMap[navigation] = shapedQuery;
     }
 
     /// <summary>
