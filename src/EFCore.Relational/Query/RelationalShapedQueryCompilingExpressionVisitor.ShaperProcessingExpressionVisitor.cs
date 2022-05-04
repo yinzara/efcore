@@ -476,131 +476,9 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
                 {
                     if (!_variableShaperMapping.TryGetValue(entityShaperExpression.ValueBufferExpression, out var accessor))
                     {
-                    //    if (entityShaperExpression.EntityType.MappedToJson())
-                    //    {
-                    //        entityCount++;
-
-                    //        var projectionBinding = (ProjectionBindingExpression)entityShaperExpression.ValueBufferExpression;
-                    //        var selectExpression = (SelectExpression)projectionBinding.QueryExpression;
-                    //        var projectionIndex = selectExpression.GetProjection(projectionBinding).GetConstantValue<int>();
-
-                    //        var jsonElement = Expression.Variable(
-                    //            typeof(JsonElement),
-                    //            "jsonElement" + entityCount);
-
-                    //        _variables.Add(jsonElement);
-
-
-                    //        _jsonElementAccessMap[]
-
-
-
-
-
-
-                    //        var expressions = new List<Expression>
-                    //{
-                    //    Expression.Assign(
-                    //        jsonElement,
-                    //        Expression.Call(
-                    //            null,
-                    //            _extractJsonElementMethod,
-                    //            _dataReaderParameter,
-                    //            Expression.Constant(projectionIndex))),
-
-                    //        //Expression.TypeAs(
-                    //        //    projectionBinding,
-                    //        //    typeof(string))),
-
-                    //    //Expression.Assign(
-                    //    //    valueParameter,
-                    //    //    CreateGetValueExpression(
-                    //    //        _dataReaderParameter,
-                    //    //        projectionIndex,
-                    //    //        nullable,
-                    //    //        projection.Expression.TypeMapping!,
-                    //    //        valueParameter.Type)));
-
-
-
-
-                    ////Expression.Assign(
-                    ////        jsonDocumentVariable,
-                    ////        Expression.TypeAs(
-                    ////            valueBufferExpression,
-                    ////            typeof(JsonDocument))),
-
-                    //    relationalEntityShaperExpression,
-
-                    //    //Expression.Condition(
-                    //    //    Expression.Equal(jsonElement, Expression.Constant(null, jsonElement.Type)),
-                    //    //    Expression.Constant(null, relationalEntityShaperExpression.Type),
-                    //    //    relationalEntityShaperExpression)
-                    //};
-
-                    //        return Expression.Block(
-                    //            relationalEntityShaperExpression.Type,
-                    //            variables,
-                    //            expressions);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                    //    }
-
-                        //start here
-
                         var entityParameter = Expression.Parameter(entityShaperExpression.Type);
                         _variables.Add(entityParameter);
                         var entityMaterializationExpression = _parentVisitor.InjectEntityMaterializers(entityShaperExpression);
-
-                        //if (entityShaperExpression.EntityType.MappedToJson())
-                        //{
-                        //    var entityCount = 1;
-                        //    var jsonElement = Expression.Variable(
-                        //        typeof(JsonElement),
-                        //        "jsonElement" + entityCount);
-
-                        //    _variables.Add(jsonElement);
-
-                        //    _map
-                        //}
-
-
-
-
-
-
-
-
 
                         entityMaterializationExpression = Visit(entityMaterializationExpression);
 
@@ -651,27 +529,10 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
                     var projectionIndex = (int)GetProjectionIndex(projectionBindingExpression);
                     var projection = _selectExpression.Projection[projectionIndex];
 
-                    //if (projection.Expression is JsonEntityExpression jsonEntityExpression)
-                    //{
-                    //    var entityParameter = Expression.Parameter(jsonEntityExpression.EntityType.ClrType);
-                    //    _variables.Add(entityParameter);
-                    //    var entityMaterializationExpression = InjectJsonEntityMaterializers(jsonEntityExpression);
-                    //    entityMaterializationExpression = Visit(entityMaterializationExpression);
-
-                    //    _expressions.Add(Expression.Assign(entityParameter, entityMaterializationExpression));
-                    //    accessor = entityParameter;
-                    //    _variableShaperMapping[projectionBindingExpression] = accessor;
-
-                    //    return accessor;
-                    //}
-
                     var nullable = IsNullableProjection(projection);
 
                     var valueParameter = Expression.Parameter(projectionBindingExpression.Type);
                     _variables.Add(valueParameter);
-
-                    //and here
-
 
                     _expressions.Add(
                         Expression.Assign(
