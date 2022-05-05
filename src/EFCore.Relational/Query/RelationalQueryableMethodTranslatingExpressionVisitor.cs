@@ -1161,29 +1161,31 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                         table,
                         identifyingColumn.Table,
                         // TODO: is this correct????
-                        principalNullable);
+                        principalNullable,
+                        isCollection: true);
 
                     var relationalEntityShaperExpression = new RelationalEntityShaperExpression(targetEntityType, jsonEntityExpression, false);
 
+                    entityProjectionExpression.AddNavigationBinding(navigation, relationalEntityShaperExpression);
+
+                    return doee is not null
+                        ? doee.AddNavigation(targetEntityType, navigation)
+                        : new DeferredOwnedExpansionExpression(
+                            targetEntityType,
+                            (ProjectionBindingExpression)entityShaperExpression.ValueBufferExpression,
+                            navigation);
 
 
-                    var shapedQuery = new ShapedQueryExpression(jsonEntityExpression.JsonColumn, relationalEntityShaperExpression);
 
 
-                    entityProjectionExpression.AddNavigationBinding(navigation)
-
-
-
-
-
-            //selectExpression,
-            //new RelationalEntityShaperExpression(
-            //    entityType,
-            //    new ProjectionBindingExpression(
-            //        selectExpression,
-            //        new ProjectionMember(),
-            //        typeof(ValueBuffer)),
-            //    false));
+                    //selectExpression,
+                    //new RelationalEntityShaperExpression(
+                    //    entityType,
+                    //    new ProjectionBindingExpression(
+                    //        selectExpression,
+                    //        new ProjectionMember(),
+                    //        typeof(ValueBuffer)),
+                    //    false));
 
 
 
@@ -1309,7 +1311,8 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                             table,
                             identifyingColumn.Table,
                             // TODO: is this correct????
-                            principalNullable);
+                            principalNullable,
+                            isCollection: false);
 
                         innerShaper = new RelationalEntityShaperExpression(targetEntityType, jsonEntityExpression, true);
 

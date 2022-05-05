@@ -27,10 +27,10 @@ namespace Microsoft.EntityFrameworkCore.Query.SqlExpressions
         /// </summary>
         public virtual IEntityType EntityType { get; }
 
-
-
-
-
+        /// <summary>
+        /// TODO
+        /// </summary>
+        public bool IsCollection { get; init; }
 
         /// <summary>
         /// TODO
@@ -40,8 +40,9 @@ namespace Microsoft.EntityFrameworkCore.Query.SqlExpressions
             IEntityType entityType,
             Type type,
             RelationalTypeMapping? typeMapping,
-            IReadOnlyDictionary<IProperty, SqlExpression> keyPropertyExpressionMap)
-            : this(jsonColumn, entityType, type, typeMapping, keyPropertyExpressionMap, new List<string>())
+            IReadOnlyDictionary<IProperty, SqlExpression> keyPropertyExpressionMap,
+            bool isCollection)
+            : this(jsonColumn, entityType, type, typeMapping, keyPropertyExpressionMap, new List<string>(), isCollection)
         {
         }
 
@@ -54,13 +55,15 @@ namespace Microsoft.EntityFrameworkCore.Query.SqlExpressions
             Type type,
             RelationalTypeMapping? typeMapping,
             IReadOnlyDictionary<IProperty, SqlExpression> keyPropertyExpressionMap,
-            List<string> jsonPath)
+            List<string> jsonPath,
+            bool isCollection)
             : base(type, typeMapping)
         {
             JsonColumn = jsonColumn;
             EntityType = entityType;
             _jsonPath = jsonPath;
             KeyPropertyExpressionMap = keyPropertyExpressionMap;
+            IsCollection = isCollection;
         }
 
         /// <summary>
@@ -94,7 +97,7 @@ namespace Microsoft.EntityFrameworkCore.Query.SqlExpressions
                 newKeyPropertyExpressionMap[primaryKey.Properties[i]] = oldValues[i];
             }
 
-            var jsonEntityExpression = new JsonEntityExpression(JsonColumn, entityType, Type, TypeMapping, newKeyPropertyExpressionMap, newPath);
+            var jsonEntityExpression = new JsonEntityExpression(JsonColumn, entityType, Type, TypeMapping, newKeyPropertyExpressionMap, newPath, IsCollection);
 
             return new RelationalEntityShaperExpression(entityType, jsonEntityExpression, nullable: true);
         }

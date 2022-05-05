@@ -1180,6 +1180,14 @@ public class RelationalModel : Annotatable, IRelationalModel
                 }
             }
 
+
+            if (entityType.MappedToJson())
+            {
+
+            }
+
+
+
             if (rowInternalForeignKeys != null)
             {
                 if (internalForeignKeyMap == null)

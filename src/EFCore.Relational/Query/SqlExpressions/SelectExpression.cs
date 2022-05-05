@@ -2198,7 +2198,8 @@ public sealed partial class SelectExpression : TableExpressionBase
         RelationalTypeMapping jsonColumnTypeMapping,
         ITableBase table,
         TableExpressionBase tableExpressionBase,
-        bool nullable)
+        bool nullable,
+        bool isCollection)
     {
         // TODO: store this in projection expression for the owner entity, when we build it in select constructor
         var jsonColumn = new ConcreteColumnExpression(
@@ -2212,12 +2213,20 @@ public sealed partial class SelectExpression : TableExpressionBase
         var tableReferenceExpression = FindTableReference(this, tableExpressionBase);
         foreach (var property in targetEntityType.GetDeclaredProperties().Where(p => p.IsPrimaryKey()))
         {
-            keyPropertyExpressionMap[property] = new ConcreteColumnExpression(
-                property, table.FindColumn(property)!, tableReferenceExpression, nullable);
+            // TODO: store the "made up" key information somewhere? (i.e. keys that will map to select index?)
+            var columnMapping = table.FindColumn(property);
+            if (columnMapping != null)
+            {
+                keyPropertyExpressionMap[property] = new ConcreteColumnExpression(
+                    property, columnMapping, tableReferenceExpression, nullable);
+            }
+
+            //keyPropertyExpressionMap[property] = new ConcreteColumnExpression(
+            //    property, table.FindColumn(property)!, tableReferenceExpression, nullable);
         }
 
         // maumar - TODO: what should be the type here - jsonelement or something else? (target entity maybe???)
-        var jsonEntityExpression = new JsonEntityExpression(jsonColumn!, targetEntityType, typeof(JsonElement), jsonColumnTypeMapping, keyPropertyExpressionMap);
+        var jsonEntityExpression = new JsonEntityExpression(jsonColumn!, targetEntityType, typeof(JsonElement), jsonColumnTypeMapping, keyPropertyExpressionMap, isCollection);
 
         return jsonEntityExpression;
 
