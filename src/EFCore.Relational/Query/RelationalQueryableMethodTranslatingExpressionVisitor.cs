@@ -1164,16 +1164,18 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                         principalNullable,
                         isCollection: true);
 
-                    var relationalEntityShaperExpression = new RelationalEntityShaperExpression(targetEntityType, jsonEntityExpression, false);
+                    var shapedJsonCollectionExpression = new ShapedJsonCollectionExpression(jsonEntityExpression, jsonEntityExpression);
 
-                    entityProjectionExpression.AddNavigationBinding(navigation, relationalEntityShaperExpression);
+                    entityProjectionExpression.AddJsonCollectionNavigationBinding(navigation, shapedJsonCollectionExpression);
 
-                    return doee is not null
-                        ? doee.AddNavigation(targetEntityType, navigation)
-                        : new DeferredOwnedExpansionExpression(
-                            targetEntityType,
-                            (ProjectionBindingExpression)entityShaperExpression.ValueBufferExpression,
-                            navigation);
+                    return shapedJsonCollectionExpression;
+
+                    //return doee is not null
+                    //    ? doee.AddNavigation(targetEntityType, navigation)
+                    //    : new DeferredOwnedExpansionExpression(
+                    //        targetEntityType,
+                    //        (ProjectionBindingExpression)entityShaperExpression.ValueBufferExpression,
+                    //        navigation);
 
 
 

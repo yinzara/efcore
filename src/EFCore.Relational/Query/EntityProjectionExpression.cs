@@ -19,7 +19,7 @@ public class EntityProjectionExpression : Expression
 {
     private readonly IReadOnlyDictionary<IPropertyBase, SqlExpression> _propertyExpressionMap;
     private readonly Dictionary<INavigation, EntityShaperExpression> _ownedNavigationMap = new();
-    private readonly Dictionary<INavigation, ShapedQueryExpression> _ownedCollectionNavigationMap = new();
+    private readonly Dictionary<INavigation, ShapedJsonCollectionExpression> _ownedJsonCollectionNavigationMap = new();
 
 
     //private readonly IReadOnlyDictionary<IPropertyBase, SqlExpression> _jsonPropertyPathMap;
@@ -200,11 +200,10 @@ public class EntityProjectionExpression : Expression
         _ownedNavigationMap[navigation] = entityShaper;
     }
 
-
     /// <summary>
     ///     TODO
     /// </summary>
-    public virtual void AddCollectionNavigationBinding(INavigation navigation, ShapedQueryExpression shapedQuery)
+    public virtual void AddJsonCollectionNavigationBinding(INavigation navigation, ShapedJsonCollectionExpression shapedJsonCollectionExpression)
     {
         if (!EntityType.IsAssignableFrom(navigation.DeclaringEntityType)
             && !navigation.DeclaringEntityType.IsAssignableFrom(EntityType))
@@ -213,7 +212,7 @@ public class EntityProjectionExpression : Expression
                 RelationalStrings.UnableToBindMemberToEntityProjection("navigation", navigation.Name, EntityType.DisplayName()));
         }
 
-        _ownedCollectionNavigationMap[navigation] = shapedQuery;
+        _ownedJsonCollectionNavigationMap[navigation] = shapedJsonCollectionExpression;
     }
 
     /// <summary>
