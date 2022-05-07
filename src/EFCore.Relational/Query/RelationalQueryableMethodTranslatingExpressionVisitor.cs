@@ -1082,7 +1082,8 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                 return null;
             }
 
-            if (entityShaperExpression.ValueBufferExpression is JsonEntityExpression jsonEntityExpression1)
+            if (entityShaperExpression.ValueBufferExpression is JsonProjectionExpression jsonProjectionExpression1)
+            //if (entityShaperExpression.ValueBufferExpression is JsonEntityExpression jsonEntityExpression1)
             {
                 if (!targetEntityType.MappedToJson())
                 {
@@ -1105,18 +1106,33 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                 //var jsonEntityExpression = jsonEntityExpression1.BindNavigation(navigation);
 
 
-                var innerShaper2 = jsonEntityExpression1.BindNavigation(navigation);
+                var innerJsonProjectionExpression = jsonProjectionExpression1.BuildJsonProjectionExpressionForNavigation(navigation);
+
+
+                // also distinguish between entity and collection
+
+
+
+                // TODO: fix nullablity thing!!!!!!!!!!!!!!!!
+                return new RelationalEntityShaperExpression(targetEntityType, innerJsonProjectionExpression, nullable: true);
+
+
+
+                //var innerShaper2 = jsonProjectionExpression1.BindNavigation(navigation);
 
                 //var innerShaper2 = new RelationalEntityShaperExpression(
                 //    targetEntityType,
                 //    jsonEntityExpression1.BindNavigation(navigation),
                 //    nullable: true);
 
-                jsonEntityExpression1.AddNavigationBinding(navigation, innerShaper2);
+
+
+                // or maybe add caching
+                //jsonEntityExpression1.AddNavigationBinding(navigation, innerShaper2);
 
                 //return entityShaperExpression;
 
-                return innerShaper2;
+                //return innerShaper2;
 
 
                 //return new RelationalEntityShaperExpression(
@@ -1130,81 +1146,81 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
             var foreignKey = navigation.ForeignKey;
             if (navigation.IsCollection)
             {
-                if (targetEntityType.MappedToJson())
-                {
-                    // Owned types don't support inheritance See https://github.com/dotnet/efcore/issues/9630
-                    // So there is no handling for dependent having TPT
-                    // If navigation is defined on derived type and entity type is part of TPT then we need to get ITableBase for derived type.
-                    // TODO: The following code should also handle Function and SqlQuery mappings
-                    var table = navigation.DeclaringEntityType.BaseType == null
-                        || entityType.FindDiscriminatorProperty() != null
-                            ? navigation.DeclaringEntityType.GetViewOrTableMappings().Single().Table
-                            : navigation.DeclaringEntityType.GetViewOrTableMappings().Select(tm => tm.Table)
-                                .Except(navigation.DeclaringEntityType.BaseType.GetViewOrTableMappings().Select(tm => tm.Table))
-                                .Single();
+                //if (targetEntityType.MappedToJson())
+                //{
+                //    // Owned types don't support inheritance See https://github.com/dotnet/efcore/issues/9630
+                //    // So there is no handling for dependent having TPT
+                //    // If navigation is defined on derived type and entity type is part of TPT then we need to get ITableBase for derived type.
+                //    // TODO: The following code should also handle Function and SqlQuery mappings
+                //    var table = navigation.DeclaringEntityType.BaseType == null
+                //        || entityType.FindDiscriminatorProperty() != null
+                //            ? navigation.DeclaringEntityType.GetViewOrTableMappings().Single().Table
+                //            : navigation.DeclaringEntityType.GetViewOrTableMappings().Select(tm => tm.Table)
+                //                .Except(navigation.DeclaringEntityType.BaseType.GetViewOrTableMappings().Select(tm => tm.Table))
+                //                .Single();
 
-                    // Mapped to same table
-                    // We get identifying column to figure out tableExpression to pull columns from and nullability of most principal side
-                    var identifyingColumn = entityProjectionExpression.BindKeyProperty(entityType.FindPrimaryKey()!.Properties.First());
-                    var principalNullable = identifyingColumn.IsNullable;
+                //    // Mapped to same table
+                //    // We get identifying column to figure out tableExpression to pull columns from and nullability of most principal side
+                //    var identifyingColumn = entityProjectionExpression.BindKeyProperty(entityType.FindPrimaryKey()!.Properties.First());
+                //    var principalNullable = identifyingColumn.IsNullable;
 
-                    var jsonColumnName = targetEntityType.GetAnnotation(RelationalAnnotationNames.MapToJsonColumnName).Value as string;
-                    var jsonColumnTypeMapping = targetEntityType.FindRuntimeAnnotationValue(RelationalAnnotationNames.MapToJsonTypeMapping) as RelationalTypeMapping;
+                //    var jsonColumnName = targetEntityType.GetAnnotation(RelationalAnnotationNames.MapToJsonColumnName).Value as string;
+                //    var jsonColumnTypeMapping = targetEntityType.FindRuntimeAnnotationValue(RelationalAnnotationNames.MapToJsonTypeMapping) as RelationalTypeMapping;
 
-                    var jsonColumn = table.Columns.Single(x => x.Name == jsonColumnName);
-
-
-                    var jsonEntityExpression = _selectExpression.GenerateJsonEntityExpression(
-                        targetEntityType,
-                        jsonColumnName!,
-                        jsonColumnTypeMapping!,
-                        table,
-                        identifyingColumn.Table,
-                        // TODO: is this correct????
-                        principalNullable,
-                        isCollection: true);
-
-                    var shapedJsonCollectionExpression = new ShapedJsonCollectionExpression(jsonEntityExpression, jsonEntityExpression);
-
-                    entityProjectionExpression.AddJsonCollectionNavigationBinding(navigation, shapedJsonCollectionExpression);
-
-                    return shapedJsonCollectionExpression;
-
-                    //return doee is not null
-                    //    ? doee.AddNavigation(targetEntityType, navigation)
-                    //    : new DeferredOwnedExpansionExpression(
-                    //        targetEntityType,
-                    //        (ProjectionBindingExpression)entityShaperExpression.ValueBufferExpression,
-                    //        navigation);
+                //    var jsonColumn = table.Columns.Single(x => x.Name == jsonColumnName);
 
 
+                //    var jsonEntityExpression = _selectExpression.GenerateJsonEntityExpression(
+                //        targetEntityType,
+                //        jsonColumnName!,
+                //        jsonColumnTypeMapping!,
+                //        table,
+                //        identifyingColumn.Table,
+                //        // TODO: is this correct????
+                //        principalNullable,
+                //        isCollection: true);
 
+                //    var shapedJsonCollectionExpression = new ShapedJsonCollectionExpression(jsonEntityExpression, jsonEntityExpression);
 
-                    //selectExpression,
-                    //new RelationalEntityShaperExpression(
-                    //    entityType,
-                    //    new ProjectionBindingExpression(
-                    //        selectExpression,
-                    //        new ProjectionMember(),
-                    //        typeof(ValueBuffer)),
-                    //    false));
+                //    entityProjectionExpression.AddJsonCollectionNavigationBinding(navigation, shapedJsonCollectionExpression);
+
+                //    return shapedJsonCollectionExpression;
+
+                //    //return doee is not null
+                //    //    ? doee.AddNavigation(targetEntityType, navigation)
+                //    //    : new DeferredOwnedExpansionExpression(
+                //    //        targetEntityType,
+                //    //        (ProjectionBindingExpression)entityShaperExpression.ValueBufferExpression,
+                //    //        navigation);
 
 
 
 
-                    //var innerShaper = new RelationalEntityShaperExpression(targetEntityType, jsonEntityExpression, true);
+                //    //selectExpression,
+                //    //new RelationalEntityShaperExpression(
+                //    //    entityType,
+                //    //    new ProjectionBindingExpression(
+                //    //        selectExpression,
+                //    //        new ProjectionMember(),
+                //    //        typeof(ValueBuffer)),
+                //    //    false));
 
 
-                    //entityProjectionExpression.AddNavigationBinding(navigation, innerShaper);
 
 
+                //    //var innerShaper = new RelationalEntityShaperExpression(targetEntityType, jsonEntityExpression, true);
+
+
+                //    //entityProjectionExpression.AddNavigationBinding(navigation, innerShaper);
 
 
 
 
 
 
-                }
+
+
+                //}
 
 
 
@@ -1271,8 +1287,6 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                 var foo = navigation.DeclaringEntityType;
                 var bar = navigation.DeclaringEntityType.GetViewOrTableMappings();
 
-
-
                 // Owned types don't support inheritance See https://github.com/dotnet/efcore/issues/9630
                 // So there is no handling for dependent having TPT
                 // If navigation is defined on derived type and entity type is part of TPT then we need to get ITableBase for derived type.
@@ -1296,8 +1310,6 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                         || (entityType.FindDiscriminatorProperty() == null
                             && navigation.DeclaringEntityType.IsStrictlyDerivedFrom(entityShaperExpression.EntityType));
 
-
-                    //EntityProjectionExpression? entityProjection;
                     if (targetEntityType.MappedToJson())
                     {
                         var jsonColumnName = targetEntityType.GetAnnotation(RelationalAnnotationNames.MapToJsonColumnName).Value as string;
@@ -1305,20 +1317,154 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
 
                         var jsonColumn = table.Columns.Single(x => x.Name == jsonColumnName);
 
-
-                        var jsonEntityExpression = _selectExpression.GenerateJsonEntityExpression(
+                        var jsonProjectionExpression = _selectExpression.GenerateJsonProjectionExpression(
                             targetEntityType,
                             jsonColumnName!,
                             jsonColumnTypeMapping!,
                             table,
                             identifyingColumn.Table,
-                            // TODO: is this correct????
-                            principalNullable,
-                            isCollection: false);
+                            principalNullable);
 
-                        innerShaper = new RelationalEntityShaperExpression(targetEntityType, jsonEntityExpression, true);
 
-                        //return new RelationalEntityShaperExpression(targetEntityType, jsonEntityExpression, true);
+
+
+
+
+
+
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
+
+
+
+
+
+                        //collectionresultexpression
+
+
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
+
+
+
+
+
+
+                        innerShaper = new RelationalEntityShaperExpression(targetEntityType, jsonProjectionExpression, nullable: true);
+
+                        //var jsonPathExpression = _selectExpression.GenerateJsonPathExpression(
+                        //    targetEntityType,
+                        //    jsonColumnName!,
+                        //    jsonColumnTypeMapping!,
+                        //    table,
+                        //    identifyingColumn.Table,
+                        //    principalNullable);
+
+
+
+
+
+                        //innerShaper = new RelationalEntityShaperExpression(targetEntityType, jsonPathExpression, nullable: true);
+                        
+                        //var jsonEntityExpression = _selectExpression.GenerateJsonEntityExpression(
+                        //    targetEntityType,
+                        //    jsonColumnName!,
+                        //    jsonColumnTypeMapping!,
+                        //    table,
+                        //    identifyingColumn.Table,
+                        //    // TODO: is this correct????
+                        //    principalNullable,
+                        //    isCollection: false);
+
+                        //innerShaper = new RelationalEntityShaperExpression(targetEntityType, jsonEntityExpression, true);
                     }
                     else
                     {

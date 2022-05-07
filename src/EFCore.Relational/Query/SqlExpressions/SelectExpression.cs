@@ -2186,22 +2186,21 @@ public sealed partial class SelectExpression : TableExpressionBase
         }
     }
 
+
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
     ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    public JsonEntityExpression GenerateJsonEntityExpression(
+    public JsonPathExpression GenerateJsonPathExpression(
         IEntityType targetEntityType,
         string jsonColumnName,
         RelationalTypeMapping jsonColumnTypeMapping,
         ITableBase table,
         TableExpressionBase tableExpressionBase,
-        bool nullable,
-        bool isCollection)
+        bool nullable)
     {
-        // TODO: store this in projection expression for the owner entity, when we build it in select constructor
         var jsonColumn = new ConcreteColumnExpression(
             jsonColumnName,
             FindTableReference(this, tableExpressionBase),
@@ -2209,8 +2208,9 @@ public sealed partial class SelectExpression : TableExpressionBase
             jsonColumnTypeMapping,
             nullable: true);
 
-        var keyPropertyExpressionMap = new Dictionary<IProperty, SqlExpression>();
+        var keyPropertyExpressionMap = new Dictionary<IProperty, ColumnExpression>();
         var tableReferenceExpression = FindTableReference(this, tableExpressionBase);
+
         foreach (var property in targetEntityType.GetDeclaredProperties().Where(p => p.IsPrimaryKey()))
         {
             // TODO: store the "made up" key information somewhere? (i.e. keys that will map to select index?)
@@ -2220,15 +2220,9 @@ public sealed partial class SelectExpression : TableExpressionBase
                 keyPropertyExpressionMap[property] = new ConcreteColumnExpression(
                     property, columnMapping, tableReferenceExpression, nullable);
             }
-
-            //keyPropertyExpressionMap[property] = new ConcreteColumnExpression(
-            //    property, table.FindColumn(property)!, tableReferenceExpression, nullable);
         }
 
-        // maumar - TODO: what should be the type here - jsonelement or something else? (target entity maybe???)
-        var jsonEntityExpression = new JsonEntityExpression(jsonColumn!, targetEntityType, typeof(JsonElement), jsonColumnTypeMapping, keyPropertyExpressionMap, isCollection);
-
-        return jsonEntityExpression;
+        return new JsonPathExpression(jsonColumn, typeof(JsonElement), jsonColumnTypeMapping, keyPropertyExpressionMap);
 
         static TableReferenceExpression FindTableReference(SelectExpression selectExpression, TableExpressionBase tableExpression)
         {
@@ -2237,6 +2231,105 @@ public sealed partial class SelectExpression : TableExpressionBase
             return selectExpression._tableReferences[tableIndex];
         }
     }
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public JsonProjectionExpression GenerateJsonProjectionExpression(
+        IEntityType targetEntityType,
+        string jsonColumnName,
+        RelationalTypeMapping jsonColumnTypeMapping,
+        ITableBase table,
+        TableExpressionBase tableExpressionBase,
+        bool nullable)
+    {
+        var jsonColumn = new ConcreteColumnExpression(
+            jsonColumnName,
+            FindTableReference(this, tableExpressionBase),
+            typeof(JsonElement),
+            jsonColumnTypeMapping,
+            nullable: true);
+
+        var keyPropertyMap = new Dictionary<IProperty, ColumnExpression>();
+        var tableReferenceExpression = FindTableReference(this, tableExpressionBase);
+
+        foreach (var property in targetEntityType.GetDeclaredProperties().Where(p => p.IsPrimaryKey()))
+        {
+            // TODO: store the "made up" key information somewhere? (i.e. keys that will map to select index?)
+            var columnMapping = table.FindColumn(property);
+            if (columnMapping != null)
+            {
+                keyPropertyMap[property] = new ConcreteColumnExpression(
+                    property, columnMapping, tableReferenceExpression, nullable);
+            }
+        }
+
+        var jsonPathExpression = new JsonPathExpression(jsonColumn, typeof(JsonElement), jsonColumnTypeMapping, keyPropertyMap);
+
+        return new JsonProjectionExpression(targetEntityType, jsonPathExpression);
+
+        static TableReferenceExpression FindTableReference(SelectExpression selectExpression, TableExpressionBase tableExpression)
+        {
+            var tableIndex = selectExpression._tables.FindIndex(e => ReferenceEquals(e, tableExpression));
+
+            return selectExpression._tableReferences[tableIndex];
+        }
+    }
+
+    ///// <summary>
+    /////     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    /////     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    /////     any release. You should only use it directly in your code with extreme caution and knowing that
+    /////     doing so can result in application failures when updating to a new Entity Framework Core release.
+    ///// </summary>
+    //public JsonEntityExpression GenerateJsonEntityExpression(
+    //    IEntityType targetEntityType,
+    //    string jsonColumnName,
+    //    RelationalTypeMapping jsonColumnTypeMapping,
+    //    ITableBase table,
+    //    TableExpressionBase tableExpressionBase,
+    //    bool nullable,
+    //    bool isCollection)
+    //{
+    //    // TODO: store this in projection expression for the owner entity, when we build it in select constructor
+    //    var jsonColumn = new ConcreteColumnExpression(
+    //        jsonColumnName,
+    //        FindTableReference(this, tableExpressionBase),
+    //        typeof(JsonElement),
+    //        jsonColumnTypeMapping,
+    //        nullable: true);
+
+    //    var keyPropertyExpressionMap = new Dictionary<IProperty, SqlExpression>();
+    //    var tableReferenceExpression = FindTableReference(this, tableExpressionBase);
+    //    foreach (var property in targetEntityType.GetDeclaredProperties().Where(p => p.IsPrimaryKey()))
+    //    {
+    //        // TODO: store the "made up" key information somewhere? (i.e. keys that will map to select index?)
+    //        var columnMapping = table.FindColumn(property);
+    //        if (columnMapping != null)
+    //        {
+    //            keyPropertyExpressionMap[property] = new ConcreteColumnExpression(
+    //                property, columnMapping, tableReferenceExpression, nullable);
+    //        }
+
+    //        //keyPropertyExpressionMap[property] = new ConcreteColumnExpression(
+    //        //    property, table.FindColumn(property)!, tableReferenceExpression, nullable);
+    //    }
+
+    //    // maumar - TODO: what should be the type here - jsonelement or something else? (target entity maybe???)
+    //    var jsonEntityExpression = new JsonEntityExpression(jsonColumn!, targetEntityType, typeof(JsonElement), jsonColumnTypeMapping, keyPropertyExpressionMap, isCollection);
+
+    //    return jsonEntityExpression;
+
+    //    static TableReferenceExpression FindTableReference(SelectExpression selectExpression, TableExpressionBase tableExpression)
+    //    {
+    //        var tableIndex = selectExpression._tables.FindIndex(e => ReferenceEquals(e, tableExpression));
+
+    //        return selectExpression._tableReferences[tableIndex];
+    //    }
+    //}
 
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to

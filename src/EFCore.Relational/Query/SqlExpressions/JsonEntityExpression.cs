@@ -3,6 +3,90 @@
 
 namespace Microsoft.EntityFrameworkCore.Query.SqlExpressions
 {
+    ///// <summary>
+    ///// TODO
+    ///// </summary>
+    //public class JsonPathExpression : SqlExpression
+    //{
+    //    private readonly List<string> _jsonPath;
+
+    //    /// <summary>
+    //    /// TODO
+    //    /// </summary>
+    //    public virtual ColumnExpression JsonColumn { get; }
+
+    //    /// <summary>
+    //    /// TODO
+    //    /// </summary>
+    //    public virtual IReadOnlyDictionary<IProperty, SqlExpression> KeyPropertyExpressionMap { get; }
+
+    //    /// <summary>
+    //    /// TODO
+    //    /// </summary>
+    //    public JsonPathExpression(
+    //        ColumnExpression jsonColumn,
+    //        Type type,
+    //        RelationalTypeMapping? typeMapping,
+    //        IReadOnlyDictionary<IProperty, SqlExpression> keyPropertyExpressionMap)
+    //        : this(jsonColumn, type, typeMapping, keyPropertyExpressionMap, new List<string>())
+    //    {
+    //        JsonColumn = jsonColumn;
+    //        KeyPropertyExpressionMap = keyPropertyExpressionMap;
+    //    }
+
+    //    /// <summary>
+    //    /// TODO
+    //    /// </summary>
+    //    public JsonPathExpression(
+    //        ColumnExpression jsonColumn,
+    //        Type type,
+    //        RelationalTypeMapping? typeMapping,
+    //        IReadOnlyDictionary<IProperty, SqlExpression> keyPropertyExpressionMap,
+    //        List<string> jsonPath)
+    //        : base(type, typeMapping)
+    //    {
+    //        JsonColumn = jsonColumn;
+    //        KeyPropertyExpressionMap = keyPropertyExpressionMap;
+    //        _jsonPath = jsonPath;
+    //    }
+
+    //    /// <summary>
+    //    /// TODO
+    //    /// </summary>
+    //    protected override void Print(ExpressionPrinter expressionPrinter)
+    //    {
+    //        expressionPrinter.Append("SqlPathExpression(column: " + JsonColumn.Name + "  Path: " + string.Join(".", _jsonPath) + ")");
+    //    }
+
+
+
+    //    /// <inheritdoc />
+    //    public override bool Equals(object? obj)
+    //    {
+    //        if (obj is JsonPathExpression jsonPathExpression)
+    //        {
+    //            var result = true;
+    //            result = result && JsonColumn.Equals(jsonPathExpression.JsonColumn);
+    //            result = result && _jsonPath.Count == jsonPathExpression._jsonPath.Count;
+
+    //            if (result)
+    //            {
+    //                result = result && _jsonPath.Zip(jsonPathExpression._jsonPath, (l, r) => l == r).All(x => true);
+    //            }
+
+    //            return result;
+    //        }
+    //        else
+    //        {
+    //            return false;
+    //        }
+    //    }
+
+    //    /// <inheritdoc />
+    //    public override int GetHashCode()
+    //        => HashCode.Combine(base.GetHashCode(), JsonColumn, _jsonPath);
+    //}
+
     /// <summary>
     /// TODO
     /// </summary>
