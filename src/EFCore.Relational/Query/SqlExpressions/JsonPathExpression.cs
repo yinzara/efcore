@@ -53,6 +53,32 @@ namespace Microsoft.EntityFrameworkCore.Query.SqlExpressions
             JsonPath = jsonPath.AsReadOnly();
         }
 
+        /// <inheritdoc />
+        protected override Expression VisitChildren(ExpressionVisitor visitor)
+        {
+            var jsonColumn = (ColumnExpression)visitor.Visit(JsonColumn);
+            var keyPropertyMapChanged = false;
+
+            var newKeyPropertyMap = new Dictionary<IProperty, ColumnExpression>();
+            foreach (var keyPropertyMapElement in KeyPropertyMap)
+            {
+                var newColumn = (ColumnExpression)visitor.Visit(keyPropertyMapElement.Value);
+                if (newColumn != keyPropertyMapElement.Value)
+                {
+                    newKeyPropertyMap[keyPropertyMapElement.Key] = newColumn;
+                    keyPropertyMapChanged = true;
+                }
+                else
+                {
+                    newKeyPropertyMap[keyPropertyMapElement.Key] = keyPropertyMapElement.Value;
+                }
+            }
+
+            return jsonColumn != JsonColumn || keyPropertyMapChanged
+                ? new JsonPathExpression(jsonColumn, Type, TypeMapping, newKeyPropertyMap)
+                : this;
+        }
+
         /// <summary>
         /// TODO
         /// </summary>

@@ -94,6 +94,10 @@ namespace Microsoft.EntityFrameworkCore.Query
             return new JsonProjectionExpression(entityType, newJsonPathExpression);
         }
 
+        ///// <inheritdoc />
+        //protected override Expression VisitChildren(ExpressionVisitor visitor)
+        //    => this; // TODO????
+
         ///// <summary>
         ///// TODO
         ///// </summary>

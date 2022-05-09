@@ -112,11 +112,14 @@ public abstract class SqlExpressionVisitor : ExpressionVisitor
             case UnionExpression unionExpression:
                 return VisitUnion(unionExpression);
 
-            case JsonEntityExpression jsonEntityExpression:
-                return VisitJsonEntityExpression(jsonEntityExpression);
+            case JsonPathExpression jsonPathExpression:
+                return VisitJsonPathExpression(jsonPathExpression);
 
-            case JsonMappedPropertyExpression jsonMappedPropertyExpression:
-                return VisitJsonMappedPropertyExpression(jsonMappedPropertyExpression);
+            //case JsonEntityExpression jsonEntityExpression:
+            //    return VisitJsonEntityExpression(jsonEntityExpression);
+
+            //case JsonMappedPropertyExpression jsonMappedPropertyExpression:
+            //    return VisitJsonMappedPropertyExpression(jsonMappedPropertyExpression);
         }
 
         return base.VisitExtension(extensionExpression);
@@ -326,16 +329,23 @@ public abstract class SqlExpressionVisitor : ExpressionVisitor
     protected abstract Expression VisitUnion(UnionExpression unionExpression);
 
     /// <summary>
-    ///     Visits the children of the json entity expression.
+    ///     Visits the children of the json path expression.
     /// </summary>
-    /// <param name="jsonEntityExpression">The expression to visit.</param>
+    /// <param name="jsonPathExpression">The expression to visit.</param>
     /// <returns>The modified expression, if it or any subexpression was modified; otherwise, returns the original expression.</returns>
-    protected abstract Expression VisitJsonEntityExpression(JsonEntityExpression jsonEntityExpression);
+    protected abstract Expression VisitJsonPathExpression(JsonPathExpression jsonPathExpression);
 
-    /// <summary>
-    ///     Visits the children of the json mapped property expression.
-    /// </summary>
-    /// <param name="jsonMappedPropertyExpression">The expression to visit.</param>
-    /// <returns>The modified expression, if it or any subexpression was modified; otherwise, returns the original expression.</returns>
-    protected abstract Expression VisitJsonMappedPropertyExpression(JsonMappedPropertyExpression jsonMappedPropertyExpression);
+    ///// <summary>
+    /////     Visits the children of the json entity expression.
+    ///// </summary>
+    ///// <param name="jsonEntityExpression">The expression to visit.</param>
+    ///// <returns>The modified expression, if it or any subexpression was modified; otherwise, returns the original expression.</returns>
+    //protected abstract Expression VisitJsonEntityExpression(JsonEntityExpression jsonEntityExpression);
+
+    ///// <summary>
+    /////     Visits the children of the json mapped property expression.
+    ///// </summary>
+    ///// <param name="jsonMappedPropertyExpression">The expression to visit.</param>
+    ///// <returns>The modified expression, if it or any subexpression was modified; otherwise, returns the original expression.</returns>
+    //protected abstract Expression VisitJsonMappedPropertyExpression(JsonMappedPropertyExpression jsonMappedPropertyExpression);
 }

@@ -501,7 +501,8 @@ public sealed partial class SelectExpression : TableExpressionBase
             var pushdownOccurred = false;
             var containsCollection = false;
             var containsSingleResult = false;
-            var jsonEntityClientProjectionsCount = 0;
+            //var jsonEntityClientProjectionsCount = 0;
+            var jsonClientProjectionsCount = 0;
 
             foreach (var projection in _clientProjections)
             {
@@ -519,10 +520,15 @@ public sealed partial class SelectExpression : TableExpressionBase
                     }
                 }
 
-                if (projection is JsonEntityExpression jsonEntityExpression)
+                if (projection is JsonProjectionExpression jsonProjectionExpression)
                 {
-                    jsonEntityClientProjectionsCount++;
+                    jsonClientProjectionsCount++;
                 }
+
+                //if (projection is JsonEntityExpression jsonEntityExpression)
+                //{
+                //    jsonEntityClientProjectionsCount++;
+                //}
             }
 
             if (containsSingleResult
@@ -579,20 +585,27 @@ public sealed partial class SelectExpression : TableExpressionBase
 
             // TODO: test and improve this algorithm
 
-            var jsonClientProjectionDeduduplicationMap = new Dictionary<JsonEntityExpression, List<JsonEntityExpression>>();
-            if (jsonEntityClientProjectionsCount > 0)
+            var jsonClientProjectionDeduduplicationMap = new Dictionary<JsonProjectionExpression, List<JsonProjectionExpression>>();
+            //var jsonClientProjectionDeduduplicationMap = new Dictionary<JsonEntityExpression, List<JsonEntityExpression>>();
+            //if (jsonEntityClientProjectionsCount > 0)
+            if (jsonClientProjectionsCount > 0)
             {
                 var ordered = _clientProjections
-                    .OfType<JsonEntityExpression>()
-                    .OrderBy(x => $"{x.JsonColumn.TableAlias}.{x.JsonColumn.Name}")
-                    .ThenBy(x => x.GetPath().Count);
+                    .OfType<JsonProjectionExpression>()
+                    .OrderBy(x => $"{x.JsonPathExpression.JsonColumn.TableAlias}.{x.JsonPathExpression.JsonColumn.Name}")
+                    .ThenBy(x => x.JsonPathExpression.JsonPath.Count);
+
+                //var ordered = _clientProjections
+                //    .OfType<JsonEntityExpression>()
+                //    .OrderBy(x => $"{x.JsonColumn.TableAlias}.{x.JsonColumn.Name}")
+                //    .ThenBy(x => x.GetPath().Count);
 
                 foreach (var orderedElement in ordered)
                 {
                     var match = jsonClientProjectionDeduduplicationMap.FirstOrDefault(x => JsonEntityContainedIn(x.Key, orderedElement));
                     if (match.Key == null)
                     {
-                        jsonClientProjectionDeduduplicationMap[orderedElement] = new List<JsonEntityExpression> { orderedElement };
+                        jsonClientProjectionDeduduplicationMap[orderedElement] = new List<JsonProjectionExpression> { orderedElement };
                     }
                     else
                     {
@@ -632,12 +645,19 @@ public sealed partial class SelectExpression : TableExpressionBase
                         break;
                     }
 
-                    case JsonEntityExpression jsonEntityExpression:
-                        var jsonEntityResult = AddJsonEntityProjection(jsonEntityExpression, jsonClientProjectionDeduduplicationMap);
-                        newClientProjections.Add(jsonEntityResult);
+                    case JsonProjectionExpression jsonProjectionExpression:
+                        var jsonProjectionResult = AddJsonProjection(jsonProjectionExpression, jsonClientProjectionDeduduplicationMap);
+                        newClientProjections.Add(jsonProjectionResult);
                         clientProjectionIndexMap.Add(newClientProjections.Count - 1);
 
                         break;
+
+                    //case JsonEntityExpression jsonEntityExpression:
+                    //    var jsonEntityResult = AddJsonEntityProjection(jsonEntityExpression, jsonClientProjectionDeduduplicationMap);
+                    //    newClientProjections.Add(jsonEntityResult);
+                    //    clientProjectionIndexMap.Add(newClientProjections.Count - 1);
+
+                    //    break;
 
                     case SqlExpression sqlExpression:
                     {
@@ -1102,18 +1122,24 @@ public sealed partial class SelectExpression : TableExpressionBase
         }
 
 
-
-
-
         {
             var result = new Dictionary<ProjectionMember, Expression>(_projectionMapping.Count);
             foreach (var (projectionMember, expression) in _projectionMapping)
             {
                 result[projectionMember] = expression is EntityProjectionExpression entityProjection
                     ? AddEntityProjection(entityProjection)
-                    : expression is JsonEntityExpression jsonEntityExpression
-                        ? AddJsonEntityProjection(jsonEntityExpression, null) //Constant(AddToProjection(jsonEntityExpression, projectionMember.Last?.Name))
+                    : expression is JsonProjectionExpression jsonProjectionExpression
+                        ? AddJsonProjection(jsonProjectionExpression, null) //Constant(AddToProjection(jsonEntityExpression, projectionMember.Last?.Name))
                         : Constant(AddToProjection((SqlExpression)expression, projectionMember.Last?.Name));
+
+
+
+
+                //result[projectionMember] = expression is EntityProjectionExpression entityProjection
+                //    ? AddEntityProjection(entityProjection)
+                //    : expression is JsonEntityExpression jsonEntityExpression
+                //        ? AddJsonEntityProjection(jsonEntityExpression, null) //Constant(AddToProjection(jsonEntityExpression, projectionMember.Last?.Name))
+                //        : Constant(AddToProjection((SqlExpression)expression, projectionMember.Last?.Name));
             }
 
             _projectionMapping.Clear();
@@ -1143,18 +1169,19 @@ public sealed partial class SelectExpression : TableExpressionBase
             return Constant(dictionary);
         }
 
-        ConstantExpression AddJsonEntityProjection(
-            JsonEntityExpression jsonEntityExpression,
-            Dictionary<JsonEntityExpression, List<JsonEntityExpression>>?  jsonClientProjectionDeduduplicationMap)
+        ConstantExpression AddJsonProjection(
+            JsonProjectionExpression jsonProjectionExpression,
+            Dictionary<JsonProjectionExpression, List<JsonProjectionExpression>>? jsonClientProjectionDeduduplicationMap)
         {
-            if (jsonClientProjectionDeduduplicationMap == null || jsonClientProjectionDeduduplicationMap.ContainsKey(jsonEntityExpression))
+            // TODO: this should be based on JsonPathExpression not json projection. json path is sql expression that has equals overridden
+            if (jsonClientProjectionDeduduplicationMap == null || jsonClientProjectionDeduduplicationMap.ContainsKey(jsonProjectionExpression))
             {
-                var jsonColumnIndex = AddToProjection(jsonEntityExpression);
+                var jsonColumnIndex = AddToProjection(jsonProjectionExpression.JsonPathExpression);
 
                 var dictionary = new Dictionary<IProperty, int>();
-                foreach (var keyExpressionMapElement in jsonEntityExpression.KeyPropertyExpressionMap)
+                foreach (var keyPropertyMapElement in jsonProjectionExpression.JsonPathExpression.KeyPropertyMap)
                 {
-                    dictionary[keyExpressionMapElement.Key] = AddToProjection(keyExpressionMapElement.Value);
+                    dictionary[keyPropertyMapElement.Key] = AddToProjection(keyPropertyMapElement.Value);
                 }
 
                 var additionalPath = new string[0];
@@ -1163,16 +1190,16 @@ public sealed partial class SelectExpression : TableExpressionBase
             }
             else
             {
-                var match = jsonClientProjectionDeduduplicationMap.Single(e => e.Value.Contains(jsonEntityExpression));
-                var jsonColumnIndex = AddToProjection(match.Key);
+                var match = jsonClientProjectionDeduduplicationMap.Single(e => e.Value.Contains(jsonProjectionExpression));
+                var jsonColumnIndex = AddToProjection(match.Key.JsonPathExpression);
 
                 var dictionary = new Dictionary<IProperty, int>();
-                foreach (var keyExpressionMapElement in jsonEntityExpression.KeyPropertyExpressionMap)
+                foreach (var keyPropertyMapElement in jsonProjectionExpression.JsonPathExpression.KeyPropertyMap)
                 {
-                    dictionary[keyExpressionMapElement.Key] = AddToProjection(keyExpressionMapElement.Value);
+                    dictionary[keyPropertyMapElement.Key] = AddToProjection(keyPropertyMapElement.Value);
                 }
 
-                var additionalPath = jsonEntityExpression.GetPath().Skip(match.Key.GetPath().Count).ToArray();
+                var additionalPath = jsonProjectionExpression.JsonPathExpression.JsonPath.Skip(match.Key.JsonPathExpression.JsonPath.Count).ToArray();
 
                 return Constant((jsonColumnIndex, dictionary, additionalPath));
             }
@@ -1190,15 +1217,64 @@ public sealed partial class SelectExpression : TableExpressionBase
             //return Constant((jsonColumnIndex, dictionary));
         }
 
-        static bool JsonEntityContainedIn(JsonEntityExpression sourceExpression, JsonEntityExpression targetExpression) // List<string> sourcePath, List<string> targetPath)
+
+
+        //ConstantExpression AddJsonEntityProjection(
+        //    JsonEntityExpression jsonEntityExpression,
+        //    Dictionary<JsonEntityExpression, List<JsonEntityExpression>>?  jsonClientProjectionDeduduplicationMap)
+        //{
+        //    if (jsonClientProjectionDeduduplicationMap == null || jsonClientProjectionDeduduplicationMap.ContainsKey(jsonEntityExpression))
+        //    {
+        //        var jsonColumnIndex = AddToProjection(jsonEntityExpression);
+
+        //        var dictionary = new Dictionary<IProperty, int>();
+        //        foreach (var keyExpressionMapElement in jsonEntityExpression.KeyPropertyExpressionMap)
+        //        {
+        //            dictionary[keyExpressionMapElement.Key] = AddToProjection(keyExpressionMapElement.Value);
+        //        }
+
+        //        var additionalPath = new string[0];
+
+        //        return Constant((jsonColumnIndex, dictionary, additionalPath));
+        //    }
+        //    else
+        //    {
+        //        var match = jsonClientProjectionDeduduplicationMap.Single(e => e.Value.Contains(jsonEntityExpression));
+        //        var jsonColumnIndex = AddToProjection(match.Key);
+
+        //        var dictionary = new Dictionary<IProperty, int>();
+        //        foreach (var keyExpressionMapElement in jsonEntityExpression.KeyPropertyExpressionMap)
+        //        {
+        //            dictionary[keyExpressionMapElement.Key] = AddToProjection(keyExpressionMapElement.Value);
+        //        }
+
+        //        var additionalPath = jsonEntityExpression.GetPath().Skip(match.Key.GetPath().Count).ToArray();
+
+        //        return Constant((jsonColumnIndex, dictionary, additionalPath));
+        //    }
+
+        //    //// TODO: look for subset
+        //    //// should we add json entity or just column here?
+        //    //var jsonColumnIndex = AddToProjection(jsonEntityExpression);
+
+        //    //var dictionary = new Dictionary<IProperty, int>();
+        //    //foreach (var keyExpressionMapElement in jsonEntityExpression.KeyPropertyExpressionMap)
+        //    //{
+        //    //    dictionary[keyExpressionMapElement.Key] = AddToProjection(keyExpressionMapElement.Value);
+        //    //}
+
+        //    //return Constant((jsonColumnIndex, dictionary));
+        //}
+
+        static bool JsonEntityContainedIn(JsonProjectionExpression sourceExpression, JsonProjectionExpression targetExpression) // List<string> sourcePath, List<string> targetPath)
         {
-            if (sourceExpression.JsonColumn != targetExpression.JsonColumn)
+            if (sourceExpression.JsonPathExpression.JsonColumn != targetExpression.JsonPathExpression.JsonColumn)
             {
                 return false;
             }
 
-            var sourcePath = sourceExpression.GetPath().ToList();
-            var targetPath = targetExpression.GetPath().ToList();
+            var sourcePath = sourceExpression.JsonPathExpression.JsonPath.ToList();
+            var targetPath = targetExpression.JsonPathExpression.JsonPath.ToList();
 
             if (targetPath.Count < sourcePath.Count)
             {
@@ -1249,7 +1325,8 @@ public sealed partial class SelectExpression : TableExpressionBase
             Check.DebugAssert(
                 expression is SqlExpression
                 || expression is EntityProjectionExpression
-                || expression is ShapedQueryExpression,
+                || expression is ShapedQueryExpression
+                || expression is JsonProjectionExpression,
                 "Invalid operation in the projection.");
             _clientProjections.Add(expression);
             _aliasForClientProjections.Add(null);
