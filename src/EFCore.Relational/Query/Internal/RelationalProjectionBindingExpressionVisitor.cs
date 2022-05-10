@@ -147,6 +147,16 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
                             materializeCollectionNavigationExpression.Navigation,
                             materializeCollectionNavigationExpression.Navigation.ClrType.GetSequenceType());
 
+                    case JsonCollectionResultExpression jsonCollectionResultExpression:
+                        return AddClientProjection(jsonCollectionResultExpression, typeof(ValueBuffer));
+                        //_clientProjections!.Add(jsonCollectionResultExpression);
+
+                        //// IDK what to do here >.<
+                        //return new CollectionResultExpression(
+                        //    new ProjectionBindingExpression(_selectExpression, _clientProjections.Count - 1, expression.Type),
+                        //    jsonCollectionResultExpression.Navigation,
+                        //    jsonCollectionResultExpression.Navigation.ClrType.GetSequenceType());
+
                     case MethodCallExpression methodCallExpression:
                         if (methodCallExpression.Method.IsGenericMethod
                             && methodCallExpression.Method.DeclaringType == typeof(Enumerable)
@@ -337,8 +347,33 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
                     new ProjectionBindingExpression(_selectExpression, _projectionMembers.Peek(), typeof(ValueBuffer)));
             }
 
-            case IncludeExpression:
-                return _indexBasedBinding ? base.VisitExtension(extensionExpression) : QueryCompilationContext.NotTranslatedExpression;
+            case IncludeExpression includeExpression:
+                if (_indexBasedBinding)
+                {
+                    if (includeExpression.NavigationExpression is MaterializeCollectionNavigationExpression mcne)
+                    {
+                        // we are removing the .AsQueryable().Select(c => c) on top of JsonCollectionResultExpression so that we don't need to run translation
+                        if (mcne.Subquery is MethodCallExpression mceSubquery
+                            && mceSubquery.Method.IsGenericMethod
+                            && mceSubquery.Method.GetGenericMethodDefinition() == QueryableMethods.Select
+                            && mceSubquery.Arguments[0] is MethodCallExpression mceSelectSource
+                            && mceSelectSource.Method.IsGenericMethod
+                            && mceSelectSource.Method.GetGenericMethodDefinition() == QueryableMethods.AsQueryable
+                            && mceSelectSource.Arguments[0] is JsonCollectionResultExpression jcre)
+                        {
+                            // TODO: also check that argument[1] of the select is identity projection
+                            var updated = includeExpression.Update(includeExpression.EntityExpression, jcre);
+
+                            return base.VisitExtension(updated);
+                        }
+                    }
+
+                    return base.VisitExtension(extensionExpression);
+                }
+                else
+                {
+                    return QueryCompilationContext.NotTranslatedExpression;
+                }
 
             case CollectionResultExpression collectionResultExpression:
             {

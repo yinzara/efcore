@@ -1038,11 +1038,41 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
             return base.VisitMethodCall(methodCallExpression);
         }
 
+
         protected override Expression VisitExtension(Expression extensionExpression)
-            => extensionExpression is EntityShaperExpression
-                || extensionExpression is ShapedQueryExpression
-                    ? extensionExpression
-                    : base.VisitExtension(extensionExpression);
+        {
+            if (extensionExpression is EntityShaperExpression or ShapedQueryExpression)
+            {
+                return extensionExpression;
+            }
+
+            // TODO: fix this - look at both sides of navigation etc for the declaring entity
+            if (extensionExpression is IncludeExpression includeExpression
+                && includeExpression.Navigation.DeclaringEntityType.MappedToJson())
+            {
+                var entityExpression = Visit(includeExpression.EntityExpression);
+
+                return entityExpression;
+
+                //if (entityExpression is RelationalEntityShaperExpression relationalEntityShaperExpression
+                //    && relationalEntityShaperExpression.EntityType.MappedToJson())
+                //{
+                //    return relationalEntityShaperExpression;
+                //}
+
+                //var navigationExpression = Visit(includeExpression.NavigationExpression);
+
+                //return includeExpression.Update(entityExpression, navigationExpression);
+            }
+
+            return base.VisitExtension(extensionExpression);
+        }
+
+        //protected override Expression VisitExtension(Expression extensionExpression)
+        //    => extensionExpression is EntityShaperExpression
+        //        || extensionExpression is ShapedQueryExpression
+        //            ? extensionExpression
+        //            : base.VisitExtension(extensionExpression);
 
         private Expression? TryExpand(Expression? source, MemberIdentity member)
         {

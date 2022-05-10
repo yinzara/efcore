@@ -520,7 +520,7 @@ public sealed partial class SelectExpression : TableExpressionBase
                     }
                 }
 
-                if (projection is JsonProjectionExpression jsonProjectionExpression)
+                if (projection is JsonProjectionExpression or JsonCollectionResultExpression)
                 {
                     jsonClientProjectionsCount++;
                 }
@@ -1326,7 +1326,8 @@ public sealed partial class SelectExpression : TableExpressionBase
                 expression is SqlExpression
                 || expression is EntityProjectionExpression
                 || expression is ShapedQueryExpression
-                || expression is JsonProjectionExpression,
+                || expression is JsonProjectionExpression
+                || expression is JsonCollectionResultExpression,
                 "Invalid operation in the projection.");
             _clientProjections.Add(expression);
             _aliasForClientProjections.Add(null);
