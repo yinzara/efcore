@@ -148,7 +148,15 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
                             materializeCollectionNavigationExpression.Navigation.ClrType.GetSequenceType());
 
                     case JsonCollectionResultExpression jsonCollectionResultExpression:
-                        return AddClientProjection(jsonCollectionResultExpression, typeof(ValueBuffer));
+                        var projectionBinding = AddClientProjection(jsonCollectionResultExpression.JsonProjectionExpression, typeof(ValueBuffer));
+
+                        // IDK what to do here >.<
+                        return new CollectionResultExpression(
+                            projectionBinding,
+                            jsonCollectionResultExpression.Navigation,
+                            jsonCollectionResultExpression.Navigation.ClrType.GetSequenceType());
+
+                        //return AddClientProjection(jsonCollectionResultExpression, typeof(ValueBuffer));
                         //_clientProjections!.Add(jsonCollectionResultExpression);
 
                         //// IDK what to do here >.<
