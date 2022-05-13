@@ -16,12 +16,13 @@ namespace Microsoft.EntityFrameworkCore.Query
         /// <summary>
         /// TODO
         /// </summary>
-        public JsonProjectionExpression(IEntityType entityType, JsonPathExpression jsonPathExpression)
+        public JsonProjectionExpression(IEntityType entityType, JsonPathExpression jsonPathExpression, bool isCollection)
         {
             //_jsonNavigationMap = new Dictionary<INavigation, JsonProjectionExpression>();
 
             EntityType = entityType;
             JsonPathExpression = jsonPathExpression;
+            IsCollection = isCollection;
         }
 
         /// <summary>
@@ -34,13 +35,18 @@ namespace Microsoft.EntityFrameworkCore.Query
         /// </summary>
         public virtual JsonPathExpression JsonPathExpression { get; }
 
+        /// <summary>
+        /// TODO
+        /// </summary>
+        public bool IsCollection { get; }
+
         /// <inheritdoc />
         public sealed override ExpressionType NodeType
             => ExpressionType.Extension;
 
         /// <inheritdoc />
         public override Type Type
-            => EntityType.ClrType;
+            => IsCollection ? typeof(IEnumerable<>).MakeGenericType(EntityType.ClrType) : EntityType.ClrType;
 
         /// <summary>
         ///     Binds a property with this entity projection to get the SQL representation.
@@ -91,46 +97,7 @@ namespace Microsoft.EntityFrameworkCore.Query
                 newKeyPropertyMap,
                 newPath);
 
-            return new JsonProjectionExpression(entityType, newJsonPathExpression);
+            return new JsonProjectionExpression(entityType, newJsonPathExpression, navigation.IsCollection);
         }
-
-        ///// <inheritdoc />
-        //protected override Expression VisitChildren(ExpressionVisitor visitor)
-        //    => this; // TODO????
-
-        ///// <summary>
-        ///// TODO
-        ///// </summary>
-        //public virtual JsonProjectionExpression BindNavigation(INavigation navigation)
-        //{
-        //    var pathSegment = navigation.Name;
-        //    var entityType = navigation.TargetEntityType;
-
-        //    var newPath = JsonPathExpression.JsonPath.ToList();
-        //    newPath.Add(pathSegment);
-
-        //    var newKeyPropertyMap = new Dictionary<IProperty, ColumnExpression>();
-        //    var primaryKey = entityType.FindPrimaryKey();
-        //    if (primaryKey == null || primaryKey.Properties.Count != JsonPathExpression.KeyPropertyMap.Count)
-        //    {
-        //        // or should it? (collection)
-        //        throw new InvalidOperationException("shouldnt happen");
-        //    }
-
-        //    var oldValues = JsonPathExpression.KeyPropertyMap.Values.ToList();
-        //    for (var i = 0; i < primaryKey.Properties.Count; i++)
-        //    {
-        //        newKeyPropertyMap[primaryKey.Properties[i]] = oldValues[i];
-        //    }
-
-        //    var newJsonPathExpression = new JsonPathExpression(
-        //        JsonPathExpression.JsonColumn,
-        //        JsonPathExpression.Type,
-        //        JsonPathExpression.TypeMapping,
-        //        newKeyPropertyMap,
-        //        newPath);
-
-        //    return new JsonProjectionExpression(entityType, newJsonPathExpression);
-        //}
     }
 }

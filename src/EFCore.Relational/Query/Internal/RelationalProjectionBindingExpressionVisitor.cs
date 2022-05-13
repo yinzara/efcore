@@ -358,18 +358,26 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
             case IncludeExpression includeExpression:
                 if (_indexBasedBinding)
                 {
-                    if (includeExpression.NavigationExpression is MaterializeCollectionNavigationExpression mcne)
+                    if (includeExpression.NavigationExpression is MaterializeCollectionNavigationExpression mcne
+                        && mcne.Navigation.TargetEntityType.MappedToJson()
+                        && mcne.Subquery is MethodCallExpression methodCallSubquery
+                        && methodCallSubquery.Method.IsGenericMethod)
                     {
-                        // we are removing the .AsQueryable().Select(c => c) on top of JsonCollectionResultExpression so that we don't need to run translation
-                        if (mcne.Subquery is MethodCallExpression mceSubquery
-                            && mceSubquery.Method.IsGenericMethod
-                            && mceSubquery.Method.GetGenericMethodDefinition() == QueryableMethods.Select
-                            && mceSubquery.Arguments[0] is MethodCallExpression mceSelectSource
-                            && mceSelectSource.Method.IsGenericMethod
-                            && mceSelectSource.Method.GetGenericMethodDefinition() == QueryableMethods.AsQueryable
-                            && mceSelectSource.Arguments[0] is JsonCollectionResultExpression jcre)
+                        // strip .Select(x => x) and .AsQueryable() from the JsonCollectionResultExpression
+                        if (methodCallSubquery.Method.GetGenericMethodDefinition() == QueryableMethods.Select
+                            && methodCallSubquery.Arguments[0] is MethodCallExpression selectSourceMethod
+                            && selectSourceMethod.Method.IsGenericMethod
+                            && methodCallSubquery.Arguments[1].UnwrapLambdaFromQuote() is LambdaExpression selectLambda
+                            // TODO check the identity projection
+                            )
                         {
-                            // TODO: also check that argument[1] of the select is identity projection
+                            methodCallSubquery = selectSourceMethod;
+                        }
+
+                        if (methodCallSubquery.Method.IsGenericMethod
+                            && methodCallSubquery.Method.GetGenericMethodDefinition() == QueryableMethods.AsQueryable
+                            && methodCallSubquery.Arguments[0] is JsonCollectionResultExpression jcre)
+                        {
                             var updated = includeExpression.Update(includeExpression.EntityExpression, jcre);
 
                             return base.VisitExtension(updated);

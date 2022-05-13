@@ -1209,7 +1209,8 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                         jsonColumnTypeMapping!,
                         table,
                         identifyingColumn.Table,
-                        principalNullable);
+                        principalNullable,
+                        isCollection: true);
 
                     return new JsonCollectionResultExpression(jsonProjectionExpression, navigation, targetEntityType.ClrType);
                 }
@@ -1393,7 +1394,8 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                             jsonColumnTypeMapping!,
                             table,
                             identifyingColumn.Table,
-                            principalNullable);
+                            principalNullable,
+                            isCollection: false);
 
 
 

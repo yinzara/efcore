@@ -520,15 +520,10 @@ public sealed partial class SelectExpression : TableExpressionBase
                     }
                 }
 
-                if (projection is JsonProjectionExpression or JsonCollectionResultExpression)
+                if (projection is JsonProjectionExpression)
                 {
                     jsonClientProjectionsCount++;
                 }
-
-                //if (projection is JsonEntityExpression jsonEntityExpression)
-                //{
-                //    jsonEntityClientProjectionsCount++;
-                //}
             }
 
             if (containsSingleResult
@@ -2322,7 +2317,8 @@ public sealed partial class SelectExpression : TableExpressionBase
         RelationalTypeMapping jsonColumnTypeMapping,
         ITableBase table,
         TableExpressionBase tableExpressionBase,
-        bool nullable)
+        bool nullable,
+        bool isCollection)
     {
         var jsonColumn = new ConcreteColumnExpression(
             jsonColumnName,
@@ -2347,7 +2343,7 @@ public sealed partial class SelectExpression : TableExpressionBase
 
         var jsonPathExpression = new JsonPathExpression(jsonColumn, typeof(JsonElement), jsonColumnTypeMapping, keyPropertyMap);
 
-        return new JsonProjectionExpression(targetEntityType, jsonPathExpression);
+        return new JsonProjectionExpression(targetEntityType, jsonPathExpression, isCollection);
 
         static TableReferenceExpression FindTableReference(SelectExpression selectExpression, TableExpressionBase tableExpression)
         {

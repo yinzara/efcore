@@ -741,6 +741,52 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
                                         includingEntityType, relatedEntityType, navigation, inverseNavigation).Compile()),
                                 Expression.Constant(_isTracking)));
                     }
+                    else if (includeExpression.NavigationExpression is CollectionResultExpression cre)
+                    {
+                        var projectionIndex = (ValueTuple<int, Dictionary<IProperty, int>, string[]>)GetProjectionIndex(cre.ProjectionBindingExpression);
+                        var jsonColumnProjectionIndex = projectionIndex.Item1;
+                        var keyPropertyToDataReaderIndexMap = projectionIndex.Item2;
+                        var additionalPath = projectionIndex.Item3;
+
+                        var jsonElement = Expression.Variable(
+                            typeof(JsonElement),
+                            "jsonElement" + _jsonElementCount);
+
+                        var jsonElementAssignment = Expression.Assign(
+                            jsonElement,
+                            Expression.Call(
+                                null,
+                                _extractJsonElementMethod,
+                                _dataReaderParameter,
+                                Expression.Constant(jsonColumnProjectionIndex),
+                                Expression.Constant(additionalPath)));
+
+                        _variables.Add(jsonElement);
+                        _expressions.Add(jsonElementAssignment);
+
+                        var myJsonShaperVisitor = new MyJsonShaperVisitor(
+                            _dataReaderParameter,
+                            jsonElement,
+                            entity,
+                            includeExpression.Navigation,
+                            keyPropertyToDataReaderIndexMap,
+                            _parentVisitor);
+
+                        var myResult = myJsonShaperVisitor.Visit(includeExpression.NavigationExpression);
+                        _expressions.Add(myResult);
+
+                        return entity;
+
+
+                        // todo: create my own visitor that creates the whole shaper thing
+
+
+
+                        // TODO: add more checks
+                        //var navigationExpression = Visit(includeExpression.NavigationExpression);
+
+                        //throw new InvalidOperationException(navigationExpression.ToString());
+                    }
                     else
                     {
                         var navigationExpression = Visit(includeExpression.NavigationExpression);
