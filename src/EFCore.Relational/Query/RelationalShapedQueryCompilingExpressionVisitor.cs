@@ -22,13 +22,11 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor : ShapedQue
     public class MyJsonShaperVisitor : ExpressionVisitor
     {
         private readonly MethodInfo _myMagicMethodInfo = typeof(MyJsonShaperVisitor).GetMethod(nameof(MyMagicMethod))!;
-        private readonly ParameterExpression _dataReaderParameter;
 
+        private readonly ParameterExpression _keyValuesParameter;
         private readonly Expression _jsonElement;
         private readonly Expression _includingEntity;
         private readonly INavigationBase _navigation;
-
-        private readonly Dictionary<IProperty, int> _keyPropertyToDataReaderIndexMap;
 
         private readonly RelationalShapedQueryCompilingExpressionVisitor _relationalShapedQueryCompilingExpressionVisitor;
 
@@ -41,19 +39,17 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor : ShapedQue
         /// TODO
         /// </summary>
         public MyJsonShaperVisitor(
-            ParameterExpression dataReaderParameter,
+            ParameterExpression keyValuesParameter,
             Expression jsonElement,
             Expression includingEntity,
             INavigationBase navigation,
-            Dictionary<IProperty, int> keyPropertyToDataReaderIndexMap,
             RelationalShapedQueryCompilingExpressionVisitor relationalShapedQueryCompilingExpressionVisitor)
         {
-            _dataReaderParameter = dataReaderParameter;
+            _keyValuesParameter = keyValuesParameter;
             _jsonElement = jsonElement;
             _includingEntity = includingEntity;
             _navigation = navigation;
 
-            _keyPropertyToDataReaderIndexMap = keyPropertyToDataReaderIndexMap;
             _relationalShapedQueryCompilingExpressionVisitor = relationalShapedQueryCompilingExpressionVisitor;
             //QueryCompilationContext.QueryContextParameter
         }
@@ -170,10 +166,11 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor : ShapedQue
             if (extensionExpression is CollectionResultExpression collectionResultExpression)
             {
                 var valueBufferParameter = Expression.Parameter(typeof(ValueBuffer));
-                var previousKeysParameter = Expression.Parameter(typeof(List<object>));
+                //var previousKeysParameter = Expression.Parameter(typeof(object[]));
                 var jsonElementParameter = Expression.Parameter(typeof(JsonElement));
 
-                _valueBufferParameterMapping[valueBufferParameter] = (previousKeysParameter, jsonElementParameter);
+                //_valueBufferParameterMapping[valueBufferParameter] = (previousKeysParameter, jsonElementParameter);
+                _valueBufferParameterMapping[valueBufferParameter] = (_keyValuesParameter, jsonElementParameter);
 
                 var relationalEntityShaperExpression = new RelationalEntityShaperExpression(
                     collectionResultExpression.Navigation!.TargetEntityType,
@@ -181,43 +178,17 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor : ShapedQue
                     nullable: false);
 
 
-                var previousKeyValues = new List<Expression>();
-                foreach (var keyProperty in collectionResultExpression.Navigation!.TargetEntityType.FindPrimaryKey()!.Properties)
-                {
-                    // all keys coming from parent entity will be FKs also and we should only add these
-                    if (keyProperty.IsForeignKey())
-                    {
+                //var keyValuesInitialization = Expression.ListInit(
+                //    Expression.New(typeof(List<object>)),
+                //    previousKeyValues.Select(x => Expression.ElementInit(_objectListAddMethod, x)));
 
-
-
-                        //return CreateGetValueExpression(
-                        //    _dataReaderParameter,
-                        //    projectionIndex,
-                        //    nullable,
-                        //    projection.Expression.TypeMapping!,
-                        //    methodCallExpression.Type,
-                        //    property);
-
-
-
-                        _relationalShapedQueryCompilingExpressionVisitor.
-
-
-
-                        previousKeyValues.Add(Expression.Constant(1, typeof(object)));
-                    }
-                }
-
-                var keyValuesInitialization = Expression.ListInit(
-                    Expression.New(typeof(List<object>)),
-                    previousKeyValues.Select(x => Expression.ElementInit(_objectListAddMethod, x)));
-
-                var keyValuesAssignment = Expression.Assign(previousKeysParameter, keyValuesInitialization);
+                //var keyValuesAssignment = Expression.Assign(previousKeysParameter, keyValuesInitialization);
 
                 var injectedMaterializer = _relationalShapedQueryCompilingExpressionVisitor.InjectEntityMaterializers(relationalEntityShaperExpression);
                 var visited = Visit(injectedMaterializer);
 
-                var innerShaperLambda = Expression.Lambda(visited, QueryCompilationContext.QueryContextParameter, previousKeysParameter, jsonElementParameter); 
+                //var innerShaperLambda = Expression.Lambda(visited, QueryCompilationContext.QueryContextParameter, previousKeysParameter, jsonElementParameter);
+                var innerShaperLambda = Expression.Lambda(visited, QueryCompilationContext.QueryContextParameter, _keyValuesParameter, jsonElementParameter);
 
 
 
@@ -232,14 +203,17 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor : ShapedQue
                     _myMagicMethodInfo.MakeGenericMethod(_includingEntity.Type, _navigation.TargetEntityType.ClrType),
                     QueryCompilationContext.QueryContextParameter,
                     _jsonElement,
-                    previousKeysParameter,
+
+                    _keyValuesParameter,
+
+                    //previousKeysParameter,
                     _includingEntity,
                     Expression.Constant(_navigation),
                     innerShaperLambda);
 
                 return Expression.Block(
-                    new List<ParameterExpression> { valueBufferParameter, previousKeysParameter, jsonElementParameter },
-                    keyValuesAssignment,
+                    new List<ParameterExpression> { valueBufferParameter, /*previousKeysParameter*/ jsonElementParameter },
+                    //keyValuesAssignment,
                     myMagicMethodCall);
 
                 //return myMagicMethodCall;
@@ -254,28 +228,27 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor : ShapedQue
         public static void MyMagicMethod<TIncludingEntity, TIncludedEntity>(
             QueryContext queryContext,
             JsonElement jsonElement,
-            List<object> previousPrimaryKeyPropertyValues,
+            object[] keyPropertyValues,
             TIncludingEntity entity,
             INavigationBase navigation,
-            Func<QueryContext, List<object>, JsonElement, TIncludedEntity> innerShaper)
+            Func<QueryContext, object[], JsonElement, TIncludedEntity> innerShaper)
             where TIncludingEntity : class
             where TIncludedEntity : class
         {
-
             var collecionAccessor = navigation.GetCollectionAccessor();
             if (collecionAccessor != null)
             {
                 collecionAccessor.GetOrCreate(entity, forMaterialization: true);
 
+                var newKeyPropertyValues = new object[keyPropertyValues.Length + 1];
+                Array.Copy(keyPropertyValues, newKeyPropertyValues, keyPropertyValues.Length);
+
                 var i = 0;
-                previousPrimaryKeyPropertyValues.Add(i);
                 foreach (var jsonArrayElement in jsonElement.EnumerateArray())
                 {
-                    previousPrimaryKeyPropertyValues[^1] = ++i;
+                    newKeyPropertyValues[^1] = ++i;
 
-                    var resultElement = innerShaper(queryContext, previousPrimaryKeyPropertyValues, jsonArrayElement);
-
-                    //var resultElement = elementShaper(arrayElement, i, parentIndexes);
+                    var resultElement = innerShaper(queryContext, newKeyPropertyValues, jsonArrayElement);
 
                     //fixup(entity, resultElement);
                     collecionAccessor.Add(entity, resultElement, forMaterialization: true);

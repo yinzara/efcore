@@ -745,12 +745,54 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
                     {
                         var projectionIndex = (ValueTuple<int, Dictionary<IProperty, int>, string[]>)GetProjectionIndex(cre.ProjectionBindingExpression);
                         var jsonColumnProjectionIndex = projectionIndex.Item1;
-                        var keyPropertyToDataReaderIndexMap = projectionIndex.Item2;
+                        var keyPropertyIndexMap = projectionIndex.Item2;
                         var additionalPath = projectionIndex.Item3;
 
                         var jsonElement = Expression.Variable(
                             typeof(JsonElement),
                             "jsonElement" + _jsonElementCount);
+
+                        var keyValuesParameter = Expression.Parameter(typeof(object[]));
+                        var keyValues = new Expression[keyPropertyIndexMap.Count];
+
+                        var i = 0;
+
+                        foreach (var keyProperty in cre.Navigation!.TargetEntityType.FindPrimaryKey()!.Properties.Where(p => p.IsForeignKey()))
+                        {
+                            var projection = _selectExpression.Projection[keyPropertyIndexMap[keyProperty]];
+
+                            keyValues[i] = Expression.Convert(
+                                CreateGetValueExpression(
+                                    _dataReaderParameter,
+                                    keyPropertyIndexMap[keyProperty],
+                                    IsNullableProjection(projection),
+                                    projection.Expression.TypeMapping!,
+                                    keyProperty.ClrType,
+                                    keyProperty),
+                                typeof(object));
+
+                            i++;
+                        }
+
+                        //foreach (var keyPropertyIndexMapElement in keyPropertyIndexMap)
+                        //{
+                        //    var projection = _selectExpression.Projection[keyPropertyIndexMapElement.Value];
+
+                        //    keyValues[i] = Expression.Convert(
+                        //        CreateGetValueExpression(
+                        //            _dataReaderParameter,
+                        //            keyPropertyIndexMapElement.Value,
+                        //            IsNullableProjection(projection),
+                        //            projection.Expression.TypeMapping!,
+                        //            keyPropertyIndexMapElement.Key.ClrType,
+                        //            keyPropertyIndexMapElement.Key),
+                        //        typeof(object)); ;
+
+                        //        i++;
+                        //}
+
+                        var keyValuesInitialize = Expression.NewArrayInit(typeof(object), keyValues);
+                        var keyValuesAssignment = Expression.Assign(keyValuesParameter, keyValuesInitialize);
 
                         var jsonElementAssignment = Expression.Assign(
                             jsonElement,
@@ -764,12 +806,14 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
                         _variables.Add(jsonElement);
                         _expressions.Add(jsonElementAssignment);
 
+                        _variables.Add(keyValuesParameter);
+                        _expressions.Add(keyValuesAssignment);
+
                         var myJsonShaperVisitor = new MyJsonShaperVisitor(
-                            _dataReaderParameter,
+                            keyValuesParameter,
                             jsonElement,
                             entity,
                             includeExpression.Navigation,
-                            keyPropertyToDataReaderIndexMap,
                             _parentVisitor);
 
                         var myResult = myJsonShaperVisitor.Visit(includeExpression.NavigationExpression);
