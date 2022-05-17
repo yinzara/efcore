@@ -157,6 +157,54 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
     }
 
     /// <inheritdoc />
+    protected override Expression VisitMethodCall(MethodCallExpression methodCallExpression)
+    {
+        NonQueryExpression CheckTranslated(NonQueryExpression? translated)
+            => translated
+                ?? throw new InvalidOperationException(
+                    TranslationErrorDetails == null
+                        ? CoreStrings.TranslationFailed(methodCallExpression.Print())
+                        : CoreStrings.TranslationFailedWithDetails(methodCallExpression.Print(), TranslationErrorDetails));
+
+        var method = methodCallExpression.Method;
+        if (method.DeclaringType == typeof(RelationalQueryableExtensions))
+        {
+            var source = Visit(methodCallExpression.Arguments[0]);
+            if (source is ShapedQueryExpression shapedQueryExpression)
+            {
+                var genericMethod = method.IsGenericMethod ? method.GetGenericMethodDefinition() : null;
+                switch (method.Name)
+                {
+                    case nameof(RelationalQueryableExtensions.BulkDelete)
+                        when genericMethod == RelationalQueryableExtensions.BulkDeleteMethodInfo:
+                        return CheckTranslated(TranslateBulkDelete(shapedQueryExpression));
+                }
+            }
+        }
+
+        return base.VisitMethodCall(methodCallExpression);
+    }
+
+    private NonQueryExpression? TranslateBulkDelete(ShapedQueryExpression source)
+    {
+        if (source.ShaperExpression is RelationalEntityShaperExpression entityShaperExpression)
+        {
+            var selectExpression = (SelectExpression)source.QueryExpression;
+            var entityType = entityShaperExpression.EntityType;
+            var primaryKey = entityType.FindPrimaryKey();
+            if (primaryKey != null)
+            {
+                if (primaryKey.Properties.Count == 1)
+                {
+
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <inheritdoc />
     protected override QueryableMethodTranslatingExpressionVisitor CreateSubqueryVisitor()
         => new RelationalQueryableMethodTranslatingExpressionVisitor(this);
 

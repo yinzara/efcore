@@ -43,6 +43,16 @@ public class SqlExpressionSimplifyingExpressionVisitor : ExpressionVisitor
             return shapedQueryExpression.UpdateQueryExpression(Visit(shapedQueryExpression.QueryExpression));
         }
 
+        if (extensionExpression is NonQueryExpression nonQueryExpression)
+        {
+            return nonQueryExpression.Update((DeleteExpression)Visit(nonQueryExpression.DeleteExpression));
+        }
+
+        if (extensionExpression is DeleteExpression deleteExpression)
+        {
+            return deleteExpression.Update(deleteExpression.Table, (SqlExpression?)Visit(deleteExpression.Predicate));
+        }
+
         // Only applies to 'CASE WHEN condition...' not 'CASE operand WHEN...'
         if (extensionExpression is CaseExpression caseExpression
             && caseExpression.Operand == null

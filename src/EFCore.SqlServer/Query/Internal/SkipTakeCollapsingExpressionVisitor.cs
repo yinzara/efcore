@@ -36,15 +36,15 @@ public class SkipTakeCollapsingExpressionVisitor : ExpressionVisitor
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    public virtual SelectExpression Process(
-        SelectExpression selectExpression,
+    public virtual Expression Process(
+        Expression queryExpression,
         IReadOnlyDictionary<string, object?> parametersValues,
         out bool canCache)
     {
         _parameterValues = parametersValues;
         _canCache = true;
 
-        var result = (SelectExpression)Visit(selectExpression);
+        var result = Visit(queryExpression);
 
         canCache = _canCache;
 
@@ -90,6 +90,11 @@ public class SkipTakeCollapsingExpressionVisitor : ExpressionVisitor
                         return false;
                 }
             }
+        }
+
+        if (extensionExpression is DeleteExpression deleteExpression)
+        {
+            return deleteExpression.Update(deleteExpression.Table, (SqlExpression?)Visit(deleteExpression.Predicate));
         }
 
         return base.VisitExtension(extensionExpression);

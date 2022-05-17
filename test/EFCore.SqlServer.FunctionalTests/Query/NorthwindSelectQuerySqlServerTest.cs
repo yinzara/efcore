@@ -1,6 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using Microsoft.EntityFrameworkCore.TestModels.Northwind;
+
 namespace Microsoft.EntityFrameworkCore.Query;
 
 public class NorthwindSelectQuerySqlServerTest : NorthwindSelectQueryRelationalTestBase<
@@ -2362,6 +2364,12 @@ ORDER BY [t].[CustomerID], [t0].[OrderID], [o0].[OrderID]");
 FROM [Customers] AS [c]
 WHERE [c].[CustomerID] LIKE N'F%'");
     }
+
+    protected virtual void ExecuteWithStrategyInTransaction(Action<DbContext> testOperation)
+        => TestHelpers.ExecuteWithStrategyInTransaction(CreateContext, UseTransaction, testOperation);
+
+    protected virtual void UseTransaction(DatabaseFacade facade, IDbContextTransaction transaction)
+        => facade.UseTransaction(transaction.GetDbTransaction());
 
     private void AssertSql(params string[] expected)
         => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);

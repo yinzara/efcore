@@ -37,6 +37,12 @@ public class SelectExpressionPruningExpressionVisitor : ExpressionVisitor
                     relationalSplitCollectionShaperExpression.SelectExpression.Prune(),
                     Visit(relationalSplitCollectionShaperExpression.InnerShaper));
 
+            case NonQueryExpression nonQueryExpression:
+                return nonQueryExpression.Update((DeleteExpression)Visit(nonQueryExpression.DeleteExpression));
+
+            case DeleteExpression deleteExpression:
+                return deleteExpression.Update(deleteExpression.Table, (SqlExpression?)Visit(deleteExpression.Predicate));
+
             default:
                 return base.Visit(expression);
         }

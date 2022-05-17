@@ -1,6 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
@@ -40,6 +41,68 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor : ShapedQue
     ///     Relational provider-specific dependencies for this service.
     /// </summary>
     protected virtual RelationalShapedQueryCompilingExpressionVisitorDependencies RelationalDependencies { get; }
+
+    /// <inheritdoc />
+    protected override Expression VisitExtension(Expression extensionExpression)
+    {
+        if (extensionExpression is NonQueryExpression nonQueryExpression)
+        {
+            return VisitNonQuery(nonQueryExpression);
+        }
+
+        return base.VisitExtension(extensionExpression);
+    }
+
+    /// <summary>
+    ///  asdagv
+    /// </summary>
+    /// <param name="nonQueryExpression">asdasfdsa</param>
+    /// <returns>asdasd</returns>
+    protected virtual Expression VisitNonQuery(NonQueryExpression nonQueryExpression)
+    {
+        var relationalCommandCache = new RelationalCommandCache(
+            Dependencies.MemoryCache,
+            RelationalDependencies.QuerySqlGeneratorFactory,
+            RelationalDependencies.RelationalParameterBasedSqlProcessorFactory,
+            nonQueryExpression.DeleteExpression,
+            null,
+            _useRelationalNulls);
+
+        return Expression.Call(
+            NonQueryMethodInfo,
+            Expression.Convert(QueryCompilationContext.QueryContextParameter, typeof(RelationalQueryContext)),
+            Expression.Constant(relationalCommandCache));
+    }
+
+    private static readonly MethodInfo NonQueryMethodInfo
+        = typeof(RelationalShapedQueryCompilingExpressionVisitor).GetTypeInfo()
+            .GetDeclaredMethods(nameof(NonQueryResult))
+            .Single(mi => mi.GetParameters().Length == 2);
+
+    private static int NonQueryResult(RelationalQueryContext relationalQueryContext, RelationalCommandCache relationalCommandCache)
+    {
+        // Concurrency detector
+        // Exception throwing
+
+        try
+        {
+            var relationalCommand = relationalCommandCache.RentAndPopulateRelationalCommand(relationalQueryContext);
+            return relationalCommand.ExecuteNonQuery(new RelationalCommandParameterObject(
+                relationalQueryContext.Connection,
+                relationalQueryContext.ParameterValues,
+                null,
+                relationalQueryContext.Context,
+                relationalQueryContext.CommandLogger,
+                CommandSource.LinqQuery));
+        }
+        catch (Exception)
+        {
+            // Throw friendly message
+
+            throw;
+        }
+    }
+
 
     /// <inheritdoc />
     protected override Expression VisitShapedQuery(ShapedQueryExpression shapedQueryExpression)

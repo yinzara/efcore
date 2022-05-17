@@ -224,4 +224,26 @@ public static class RelationalQueryableExtensions
 
     internal static readonly MethodInfo AsSplitQueryMethodInfo
         = typeof(RelationalQueryableExtensions).GetTypeInfo().GetDeclaredMethod(nameof(AsSplitQuery))!;
+
+    #region BulkDelete
+
+    /// <summary>
+    ///     TBD
+    /// </summary>
+    public static int BulkDelete<TSource>(this IQueryable<TSource> source)
+        => source.Provider.Execute<int>(Expression.Call(BulkDeleteMethodInfo.MakeGenericMethod(typeof(TSource)), source.Expression));
+
+    /// <summary>
+    ///     TBD
+    /// </summary>
+    public static Task<int> BulkDeleteAsync<TSource>(this IQueryable<TSource> source, CancellationToken cancellationToken = default)
+        => source.Provider is IAsyncQueryProvider provider
+            ? provider.ExecuteAsync<Task<int>>(
+                Expression.Call(BulkDeleteMethodInfo.MakeGenericMethod(typeof(TSource)), source.Expression), cancellationToken)
+            : throw new InvalidOperationException(CoreStrings.IQueryableProviderNotAsync);
+
+    internal static readonly MethodInfo BulkDeleteMethodInfo
+        = typeof(RelationalQueryableExtensions).GetTypeInfo().GetDeclaredMethod(nameof(BulkDelete))!;
+
+    #endregion
 }

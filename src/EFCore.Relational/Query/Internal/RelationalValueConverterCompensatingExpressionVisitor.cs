@@ -38,6 +38,9 @@ public class RelationalValueConverterCompensatingExpressionVisitor : ExpressionV
         => extensionExpression switch
         {
             ShapedQueryExpression shapedQueryExpression => VisitShapedQueryExpression(shapedQueryExpression),
+            NonQueryExpression nonQueryExpression => nonQueryExpression.Update((DeleteExpression)Visit(nonQueryExpression.DeleteExpression)),
+            DeleteExpression deleteExpression => deleteExpression.Update(
+                deleteExpression.Table, TryCompensateForBoolWithValueConverter(deleteExpression.Predicate)),
             CaseExpression caseExpression => VisitCase(caseExpression),
             SelectExpression selectExpression => VisitSelect(selectExpression),
             InnerJoinExpression innerJoinExpression => VisitInnerJoin(innerJoinExpression),

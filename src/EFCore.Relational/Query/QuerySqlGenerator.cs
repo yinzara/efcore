@@ -61,23 +61,35 @@ public class QuerySqlGenerator : SqlExpressionVisitor
     protected virtual QuerySqlGeneratorDependencies Dependencies { get; }
 
     /// <summary>
-    ///     Gets a relational command for a <see cref="SelectExpression" />.
+    ///     Gets a relational command for a query <see cref="Expression" />.
     /// </summary>
-    /// <param name="selectExpression">A select expression to print in command text.</param>
-    /// <returns>A relational command with a SQL represented by the select expression.</returns>
-    public virtual IRelationalCommand GetCommand(SelectExpression selectExpression)
+    /// <param name="expression">A query expression to print in command text.</param>
+    /// <returns>A relational command with a SQL represented by the query expression.</returns>
+    public virtual IRelationalCommand GetCommand(Expression expression)
     {
         _relationalCommandBuilder = _relationalCommandBuilderFactory.Create();
 
-        GenerateTagsHeaderComment(selectExpression);
+        switch (expression)
+        {
+            case SelectExpression selectExpression:
+                GenerateTagsHeaderComment(selectExpression);
 
-        if (selectExpression.IsNonComposedFromSql())
-        {
-            GenerateFromSql((FromSqlExpression)selectExpression.Tables[0]);
-        }
-        else
-        {
-            VisitSelect(selectExpression);
+                if (selectExpression.IsNonComposedFromSql())
+                {
+                    GenerateFromSql((FromSqlExpression)selectExpression.Tables[0]);
+                }
+                else
+                {
+                    VisitSelect(selectExpression);
+                }
+                break;
+
+            case DeleteExpression deleteExpression:
+                VisitDelete(deleteExpression);
+                break;
+
+            default:
+                throw new InvalidOperationException();
         }
 
         return _relationalCommandBuilder.Build();
@@ -175,6 +187,16 @@ public class QuerySqlGenerator : SqlExpressionVisitor
         }
 
         return base.VisitExtension(extensionExpression);
+    }
+
+    private Expression VisitDelete(DeleteExpression deleteExpression)
+    {
+        _relationalCommandBuilder.Append("DELETE FROM ");
+        Visit(deleteExpression.Table);
+        _relationalCommandBuilder.AppendLine().Append("WHERE ");
+        Visit(deleteExpression.Predicate);
+
+        return deleteExpression;
     }
 
     /// <inheritdoc />
@@ -376,6 +398,13 @@ public class QuerySqlGenerator : SqlExpressionVisitor
     /// <inheritdoc />
     protected override Expression VisitColumn(ColumnExpression columnExpression)
     {
+        if (columnExpression.TableAlias == _tableAliasToIgnore)
+        {
+            _relationalCommandBuilder.Append(_sqlGenerationHelper.DelimitIdentifier(columnExpression.Name));
+
+            return columnExpression;
+        }
+
         _relationalCommandBuilder
             .Append(_sqlGenerationHelper.DelimitIdentifier(columnExpression.TableAlias))
             .Append(".")

@@ -28,6 +28,18 @@ public class SearchConditionConvertingExpressionVisitor : SqlExpressionVisitor
         _sqlExpressionFactory = sqlExpressionFactory;
     }
 
+
+    protected override Expression VisitExtension(Expression extensionExpression)
+    {
+        if (extensionExpression is DeleteExpression deleteExpression)
+        {
+            _isSearchCondition = true;
+            return deleteExpression.Update(deleteExpression.Table, (SqlExpression?)Visit(deleteExpression.Predicate));
+        }
+
+        return base.VisitExtension(extensionExpression);
+    }
+
     private SqlExpression ApplyConversion(SqlExpression sqlExpression, bool condition)
         => _isSearchCondition
             ? ConvertToSearchCondition(sqlExpression, condition)
