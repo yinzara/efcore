@@ -3,8 +3,13 @@
 
 namespace Microsoft.EntityFrameworkCore.Query
 {
-    public class JsonQueryTestBase: QueryTestBase<TFixture>
+    public class JsonQueryTestBase<TFixture> : QueryTestBase<TFixture>
         where TFixture : JsonQueryFixtureBase, new()
     {
+
+        protected JsonQueryTestBase(TFixture fixture)
+            : base(fixture)
+        {
+        }
     }
 }

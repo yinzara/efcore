@@ -62,16 +62,7 @@ public static class RelationalEntityTypeExtensions
 
         var ownership = entityType.FindOwnership();
         if (ownership != null
-            && ownership.IsUnique)
-        {
-            return ownership.PrincipalEntityType.GetTableName();
-        }
-
-        // TODO: combine with the above
-        // owned collection entity mapped to json is also mapped to the parent table
-        var mapToJsonColumnName = entityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string;
-        if (ownership != null
-            && !string.IsNullOrEmpty(mapToJsonColumnName))
+            && (ownership.IsUnique || entityType.MappedToJson()))
         {
             return ownership.PrincipalEntityType.GetTableName();
         }
@@ -1284,11 +1275,25 @@ public static class RelationalEntityTypeExtensions
     ///     TODO
     /// </summary>
     public static bool MappedToJson(this IConventionEntityType entityType)
-        => !string.IsNullOrEmpty(entityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string);
+        => !string.IsNullOrEmpty(entityType.MappedToJsonColumnName());
+        //=> !string.IsNullOrEmpty(entityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string);
 
     /// <summary>
     ///     TODO
     /// </summary>
     public static bool MappedToJson(this IReadOnlyEntityType entityType)
-        => !string.IsNullOrEmpty(entityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string);
+        => !string.IsNullOrEmpty(entityType.MappedToJsonColumnName());
+//        => !string.IsNullOrEmpty(entityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string);
+
+    /// <summary>
+    ///     TODO
+    /// </summary>
+    public static string? MappedToJsonColumnName(this IConventionEntityType entityType)
+        => entityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string;
+
+    /// <summary>
+    ///     TODO
+    /// </summary>
+    public static string? MappedToJsonColumnName(this IReadOnlyEntityType entityType)
+        => entityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string;
 }

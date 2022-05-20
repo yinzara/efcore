@@ -2358,16 +2358,14 @@ public sealed partial class SelectExpression : TableExpressionBase
     /////     any release. You should only use it directly in your code with extreme caution and knowing that
     /////     doing so can result in application failures when updating to a new Entity Framework Core release.
     ///// </summary>
-    //public JsonEntityExpression GenerateJsonEntityExpression(
-    //    IEntityType targetEntityType,
+    //[EntityFrameworkInternal]
+    //public EntityProjectionExpression GenerateEntityMappedToJsonProjectionExpression(
+    //    IEntityType entityType,
     //    string jsonColumnName,
     //    RelationalTypeMapping jsonColumnTypeMapping,
     //    ITableBase table,
-    //    TableExpressionBase tableExpressionBase,
-    //    bool nullable,
-    //    bool isCollection)
+    //    TableExpressionBase tableExpressionBase)
     //{
-    //    // TODO: store this in projection expression for the owner entity, when we build it in select constructor
     //    var jsonColumn = new ConcreteColumnExpression(
     //        jsonColumnName,
     //        FindTableReference(this, tableExpressionBase),
@@ -2375,26 +2373,15 @@ public sealed partial class SelectExpression : TableExpressionBase
     //        jsonColumnTypeMapping,
     //        nullable: true);
 
-    //    var keyPropertyExpressionMap = new Dictionary<IProperty, SqlExpression>();
-    //    var tableReferenceExpression = FindTableReference(this, tableExpressionBase);
-    //    foreach (var property in targetEntityType.GetDeclaredProperties().Where(p => p.IsPrimaryKey()))
-    //    {
-    //        // TODO: store the "made up" key information somewhere? (i.e. keys that will map to select index?)
-    //        var columnMapping = table.FindColumn(property);
-    //        if (columnMapping != null)
-    //        {
-    //            keyPropertyExpressionMap[property] = new ConcreteColumnExpression(
-    //                property, columnMapping, tableReferenceExpression, nullable);
-    //        }
+    //    //var keyPropertiesMap = GetKeyPropertiesForEntityMappedToJson(entityType, table, FindTableReference(this, tableExpressionBase));
+    //    //var jsonPropertyPathMap = GetJsonPropertyPathMap(entityType, jsonColumn);
 
-    //        //keyPropertyExpressionMap[property] = new ConcreteColumnExpression(
-    //        //    property, table.FindColumn(property)!, tableReferenceExpression, nullable);
-    //    }
+    //    var propertyExpressionMap = GetPropertyPathMap(entityType, table, FindTableReference(this, tableExpressionBase), jsonColumn);
 
-    //    // maumar - TODO: what should be the type here - jsonelement or something else? (target entity maybe???)
-    //    var jsonEntityExpression = new JsonEntityExpression(jsonColumn!, targetEntityType, typeof(JsonElement), jsonColumnTypeMapping, keyPropertyExpressionMap, isCollection);
+    //    // maumar: TODO fix!!!!
+    //    var discrminator = default(SqlExpression);
 
-    //    return jsonEntityExpression;
+    //    return new EntityProjectionExpression(entityType, propertyExpressionMap, discrminator);
 
     //    static TableReferenceExpression FindTableReference(SelectExpression selectExpression, TableExpressionBase tableExpression)
     //    {
@@ -2402,176 +2389,137 @@ public sealed partial class SelectExpression : TableExpressionBase
 
     //        return selectExpression._tableReferences[tableIndex];
     //    }
+
+    //    static IReadOnlyDictionary<IPropertyBase, SqlExpression> GetPropertyPathMap(
+    //        IEntityType entityType,
+    //        ITableBase table,
+    //        TableReferenceExpression tableReferenceExpression,
+    //        ColumnExpression jsonColumn)
+    //    {
+    //        var propertyExpressions = new Dictionary<IPropertyBase, SqlExpression>();
+
+    //        foreach (var property in entityType
+    //                     .GetAllBaseTypes().Concat(entityType.GetDerivedTypesInclusive())
+    //                     .SelectMany(t => t.GetDeclaredProperties()))
+    //        {
+    //            if (property.IsForeignKey())
+    //            {
+    //                propertyExpressions[property] = new ConcreteColumnExpression(
+    //                    property, table.FindColumn(property)!, tableReferenceExpression, nullable: true);
+    //            }
+    //            else
+    //            {
+    //                // maumar - TODO: what about ordinal PK in collection?
+    //                var jsonEntityPath = GetJsonPathForEntity(entityType);
+    //                var jsonPropertyPath = @$".""{property.Name}""";
+    //                var jsonPath = "$" + (string.IsNullOrEmpty(jsonEntityPath) ? jsonPropertyPath : jsonEntityPath + jsonPropertyPath);
+    //                //var pathExpression = new SqlConstantExpression(Constant(jsonPath.ToLower()), null);
+
+    //                propertyExpressions[property] = new SqlUnaryExpression(
+    //                    ExpressionType.Convert,
+    //                    new SqlFunctionExpression(
+    //                        "JSON_VALUE",
+    //                        new SqlExpression[] { jsonColumn, new SqlFragmentExpression("'" + jsonPath + "'") },
+    //                        true,
+    //                        new bool[] { true, false },
+    //                        property.ClrType, null),
+    //                    property.ClrType,
+    //                    null);
+
+    //                //propertyExpressions[property] = new SqlFunctionExpression(
+    //                //    // maumar - hack - fix the apply default mapping instead
+    //                //    "JSON_VALUE", new SqlExpression[] { jsonColumn, new SqlFragmentExpression("'" + jsonPath + "'") }, true, new bool[] { true, false }, property.ClrType, null);
+    //                //    //"JSON_VALUE",
+    //                //    //new SqlExpression[] { jsonColumn, new SqlConstantExpression(Constant(jsonPath.ToLower()), null) },
+    //                //    //true,
+    //                //    //new bool[] { true, false },
+    //                //    //property.ClrType,
+    //                //    //null);
+    //            }
+    //        }
+
+    //        return propertyExpressions;
+    //    }
+
+    //    static string GetJsonPathForEntity(IEntityType entityType)
+    //    {
+    //        // maumar - todo - fix this logic, the way it's now is ugly, prolly do the check for parent before calling this method
+    //        if (!entityType.MappedToJson())
+    //        {
+    //            return string.Empty;
+    //        }
+
+    //        // maumar - there should be only one (right??)
+    //        var foreignKey = entityType.GetForeignKeys().Single();
+
+    //        if (foreignKey.PrincipalEntityType.MappedToJson())
+    //        {
+    //            var parentPath = GetJsonPathForEntity(foreignKey.PrincipalEntityType);
+
+    //            return $@"{parentPath}.""{foreignKey.PrincipalToDependent?.Name}""";
+    //        }
+    //        else
+    //        {
+    //            return string.Empty;
+    //        }
+
+    //        //var parentPath = GetJsonPathForEntity(foreignKey.PrincipalEntityType);
+
+    //        //// maumar: surround in quotes just in case, we can improve that later
+    //        //// quotes are only needed if name contains some special sign like space or $
+    //        //return $@"{parentPath}.""{foreignKey.PrincipalToDependent?.Name}""";
+    //    }
+
+
+    //    //static IReadOnlyDictionary<IPropertyBase, ColumnExpression> GetKeyPropertiesForEntityMappedToJson(
+    //    //    IEntityType entityType,
+    //    //    ITableBase table,
+    //    //    TableReferenceExpression tableReferenceExpression)
+    //    //{
+    //    //    var propertyExpressions = new Dictionary<IPropertyBase, ColumnExpression>();
+    //    //    foreach (var property in entityType.GetForeignKeyProperties())
+    //    //    {
+    //    //        propertyExpressions[property] = new ConcreteColumnExpression(
+    //    //            property, table.FindColumn(property)!, tableReferenceExpression, nullable: true);
+    //    //    }
+
+    //    //    return propertyExpressions;
+    //    //}
+
+    //    //static IReadOnlyDictionary<IPropertyBase, SqlExpression> GetJsonPropertyPathMap(IEntityType entityType, ColumnExpression jsonColumn)
+    //    //{
+    //    //    var foo = GetJsonPathForEntityProperty(entityType);
+
+    //    //    var result = new Dictionary<IPropertyBase, SqlExpression>();
+    //    //    foreach (var property in entityType.GetProperties())
+    //    //    {
+    //    //        if (property.IsForeignKey())
+    //    //        {
+    //    //            continue;
+    //    //        }
+
+    //    //        if (property.IsPrimaryKey())
+    //    //        {
+    //    //            // TODO: figure out how to mark it, maybe look at cosmos?
+    //    //            result.Add(property, new SqlConstantExpression(Constant("[]"), null));
+
+    //    //            // PK that is not FK - it must be the collection ordinal key thing
+    //    //            // maumar: TODO - this might not be happening for this code path - verify!!!!
+    //    //        }
+
+    //    //        // TODO: extract custom mapping
+    //    //        // also what to do when two properties only differ by casing (allowed in c#) - TEST!!!!
+    //    //        result.Add(property, new SqlConstantExpression(Constant(property.Name.ToLower()), null));
+    //    //    }
+
+    //    //    return result;
+    //    //}
+
+    //    //static string[]? GetJsonPathForEntityProperty(IEntityType entityType)
+    //    //{
+    //    //    return null;
+    //    //}
     //}
-
-    /// <summary>
-    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-    ///     any release. You should only use it directly in your code with extreme caution and knowing that
-    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
-    /// </summary>
-    [EntityFrameworkInternal]
-    public EntityProjectionExpression GenerateEntityMappedToJsonProjectionExpression(
-        IEntityType entityType,
-        string jsonColumnName,
-        RelationalTypeMapping jsonColumnTypeMapping,
-        ITableBase table,
-        TableExpressionBase tableExpressionBase)
-    {
-        var jsonColumn = new ConcreteColumnExpression(
-            jsonColumnName,
-            FindTableReference(this, tableExpressionBase),
-            typeof(JsonElement),
-            jsonColumnTypeMapping,
-            nullable: true);
-
-        //var keyPropertiesMap = GetKeyPropertiesForEntityMappedToJson(entityType, table, FindTableReference(this, tableExpressionBase));
-        //var jsonPropertyPathMap = GetJsonPropertyPathMap(entityType, jsonColumn);
-
-        var propertyExpressionMap = GetPropertyPathMap(entityType, table, FindTableReference(this, tableExpressionBase), jsonColumn);
-
-        // maumar: TODO fix!!!!
-        var discrminator = default(SqlExpression);
-
-        return new EntityProjectionExpression(entityType, propertyExpressionMap, discrminator);
-
-        static TableReferenceExpression FindTableReference(SelectExpression selectExpression, TableExpressionBase tableExpression)
-        {
-            var tableIndex = selectExpression._tables.FindIndex(e => ReferenceEquals(e, tableExpression));
-
-            return selectExpression._tableReferences[tableIndex];
-        }
-
-        static IReadOnlyDictionary<IPropertyBase, SqlExpression> GetPropertyPathMap(
-            IEntityType entityType,
-            ITableBase table,
-            TableReferenceExpression tableReferenceExpression,
-            ColumnExpression jsonColumn)
-        {
-            var propertyExpressions = new Dictionary<IPropertyBase, SqlExpression>();
-
-            foreach (var property in entityType
-                         .GetAllBaseTypes().Concat(entityType.GetDerivedTypesInclusive())
-                         .SelectMany(t => t.GetDeclaredProperties()))
-            {
-                if (property.IsForeignKey())
-                {
-                    propertyExpressions[property] = new ConcreteColumnExpression(
-                        property, table.FindColumn(property)!, tableReferenceExpression, nullable: true);
-                }
-                else
-                {
-                    // maumar - TODO: what about ordinal PK in collection?
-                    var jsonEntityPath = GetJsonPathForEntity(entityType);
-                    var jsonPropertyPath = @$".""{property.Name}""";
-                    var jsonPath = "$" + (string.IsNullOrEmpty(jsonEntityPath) ? jsonPropertyPath : jsonEntityPath + jsonPropertyPath);
-                    //var pathExpression = new SqlConstantExpression(Constant(jsonPath.ToLower()), null);
-
-                    propertyExpressions[property] = new SqlUnaryExpression(
-                        ExpressionType.Convert,
-                        new SqlFunctionExpression(
-                            "JSON_VALUE",
-                            new SqlExpression[] { jsonColumn, new SqlFragmentExpression("'" + jsonPath + "'") },
-                            true,
-                            new bool[] { true, false },
-                            property.ClrType, null),
-                        property.ClrType,
-                        null);
-
-                    //propertyExpressions[property] = new SqlFunctionExpression(
-                    //    // maumar - hack - fix the apply default mapping instead
-                    //    "JSON_VALUE", new SqlExpression[] { jsonColumn, new SqlFragmentExpression("'" + jsonPath + "'") }, true, new bool[] { true, false }, property.ClrType, null);
-                    //    //"JSON_VALUE",
-                    //    //new SqlExpression[] { jsonColumn, new SqlConstantExpression(Constant(jsonPath.ToLower()), null) },
-                    //    //true,
-                    //    //new bool[] { true, false },
-                    //    //property.ClrType,
-                    //    //null);
-                }
-            }
-
-            return propertyExpressions;
-        }
-
-        static string GetJsonPathForEntity(IEntityType entityType)
-        {
-            // maumar - todo - fix this logic, the way it's now is ugly, prolly do the check for parent before calling this method
-            if (!entityType.MappedToJson())
-            {
-                return string.Empty;
-            }
-
-            // maumar - there should be only one (right??)
-            var foreignKey = entityType.GetForeignKeys().Single();
-
-            if (foreignKey.PrincipalEntityType.MappedToJson())
-            {
-                var parentPath = GetJsonPathForEntity(foreignKey.PrincipalEntityType);
-
-                return $@"{parentPath}.""{foreignKey.PrincipalToDependent?.Name}""";
-            }
-            else
-            {
-                return string.Empty;
-            }
-
-            //var parentPath = GetJsonPathForEntity(foreignKey.PrincipalEntityType);
-
-            //// maumar: surround in quotes just in case, we can improve that later
-            //// quotes are only needed if name contains some special sign like space or $
-            //return $@"{parentPath}.""{foreignKey.PrincipalToDependent?.Name}""";
-        }
-
-
-        //static IReadOnlyDictionary<IPropertyBase, ColumnExpression> GetKeyPropertiesForEntityMappedToJson(
-        //    IEntityType entityType,
-        //    ITableBase table,
-        //    TableReferenceExpression tableReferenceExpression)
-        //{
-        //    var propertyExpressions = new Dictionary<IPropertyBase, ColumnExpression>();
-        //    foreach (var property in entityType.GetForeignKeyProperties())
-        //    {
-        //        propertyExpressions[property] = new ConcreteColumnExpression(
-        //            property, table.FindColumn(property)!, tableReferenceExpression, nullable: true);
-        //    }
-
-        //    return propertyExpressions;
-        //}
-
-        //static IReadOnlyDictionary<IPropertyBase, SqlExpression> GetJsonPropertyPathMap(IEntityType entityType, ColumnExpression jsonColumn)
-        //{
-        //    var foo = GetJsonPathForEntityProperty(entityType);
-
-        //    var result = new Dictionary<IPropertyBase, SqlExpression>();
-        //    foreach (var property in entityType.GetProperties())
-        //    {
-        //        if (property.IsForeignKey())
-        //        {
-        //            continue;
-        //        }
-
-        //        if (property.IsPrimaryKey())
-        //        {
-        //            // TODO: figure out how to mark it, maybe look at cosmos?
-        //            result.Add(property, new SqlConstantExpression(Constant("[]"), null));
-
-        //            // PK that is not FK - it must be the collection ordinal key thing
-        //            // maumar: TODO - this might not be happening for this code path - verify!!!!
-        //        }
-
-        //        // TODO: extract custom mapping
-        //        // also what to do when two properties only differ by casing (allowed in c#) - TEST!!!!
-        //        result.Add(property, new SqlConstantExpression(Constant(property.Name.ToLower()), null));
-        //    }
-
-        //    return result;
-        //}
-
-        //static string[]? GetJsonPathForEntityProperty(IEntityType entityType)
-        //{
-        //    return null;
-        //}
-    }
 
     ///// <summary>
     /////     This is an internal API that supports the Entity Framework Core infrastructure and not subject to

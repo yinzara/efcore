@@ -156,16 +156,13 @@ public class RelationalModel : Annotatable, IRelationalModel
 
             AddMappedFunctions(databaseModel, entityType);
 
-            // maumar: fix/clean up
             // TODO: we should make this in a way that npgsql can hook their json/jsonb mapping here
             if (!designTime && entityType.MappedToJson() && relationalTypeMappingSource != null)
             {
                 var jsonTypeMappingAnnotation = entityType.FindRuntimeAnnotation(RelationalAnnotationNames.MapToJsonTypeMapping);
                 if (jsonTypeMappingAnnotation == null )
                 {
-                    //var jsonColumnTypeMapping = relationalTypeMappingSource.FindMapping(typeof(JsonElement), "nvarchar");
                     var jsonColumnTypeMapping = relationalTypeMappingSource.GetMapping(typeof(string));
-
                     entityType.AddRuntimeAnnotation(RelationalAnnotationNames.MapToJsonTypeMapping, jsonColumnTypeMapping);
                 }
             }
@@ -398,8 +395,8 @@ public class RelationalModel : Annotatable, IRelationalModel
             };
 
             // TODO: convert to runtime annotation
-            var mapToJsonColumnName = entityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string;
-            //var mapToJsonColumnName = entityType.FindRuntimeAnnotationValue(RelationalAnnotationNames.MapToJsonColumnName) as string;
+            // TODO: use mapped type or entity type?
+            var mapToJsonColumnName = entityType.MappedToJsonColumnName();
             if (!string.IsNullOrEmpty(mapToJsonColumnName))
             {
                 var jsonColumn = (Column?)table.FindColumn(mapToJsonColumnName);
@@ -410,34 +407,6 @@ public class RelationalModel : Annotatable, IRelationalModel
                     jsonColumn.IsNullable = true;
                     table.Columns.Add(mapToJsonColumnName, jsonColumn);
                 }
-
-
-
-
-
-
-
-
-
-                //// TODO: is this correct? should all properties be mapped to the json column?
-                //// shadow properties (keys, foreign keys) shouldn't be persisted
-                //// since we need to allow users to create models reflecting their existing json model
-                //// can we filter out all shadow props or need to look for PK/FK specifically?
-                //// are there any others shadows props that we add?
-
-                //// or should we add mapping here for every property (map to the json column)
-                //// but ignore/filter it later?
-                //foreach (var property in entityType.GetProperties().Where(p => !p.IsShadowProperty()))
-                //{
-                //    var jsonColumnMapping = new ColumnMapping(property, jsonColumn, tableMapping);
-                //    tableMapping.ColumnMappings.Add(jsonColumnMapping);
-                //    jsonColumn.PropertyMappings.Add(jsonColumnMapping);
-                //}
-
-                //tableMappings.Add(tableMapping);
-                //table.EntityTypeMappings.Add(tableMapping);
-
-                //break;
             }
 
             foreach (var property in mappedType.GetProperties())
@@ -457,7 +426,6 @@ public class RelationalModel : Annotatable, IRelationalModel
                     columnName = property.GetColumnName(mappedTable);
                 }
 
-                //var columnName = property.GetColumnName(mappedTable);
                 if (columnName == null)
                 {
                     continue;

@@ -18,20 +18,6 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             IConventionAnnotation? oldAnnotation,
             IConventionContext<IConventionAnnotation> context)
         {
-            //if (name == RelationalAnnotationNames.MapToJson)
-            //{
-            //    if (annotation?.Value as bool? == true)
-            //    {
-
-
-
-
-            //    }
-            //    else
-            //    {
-            //    }
-            //}
-
             if (name == RelationalAnnotationNames.MapToJsonColumnName)
             {
                 var tableName = entityTypeBuilder.Metadata.GetTableName();
@@ -40,18 +26,18 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                     throw new InvalidOperationException("need table name");
                 }
 
-                if (!string.IsNullOrEmpty(annotation?.Value as string))
+                var jsonColumnName = annotation?.Value as string;
+                if (!string.IsNullOrEmpty(jsonColumnName))
                 {
                     foreach (var navigation in entityTypeBuilder.Metadata.GetNavigations()
                         .Where(n => n.ForeignKey.IsOwnership
                             && n.DeclaringEntityType == entityTypeBuilder.Metadata
                             && n.TargetEntityType.IsOwned()))
                     {
-                        var mapToJsonAnnotation = navigation.TargetEntityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName);
-                        if (mapToJsonAnnotation == null || mapToJsonAnnotation.Value != annotation.Value)
+                        var currentJsonColumnName = navigation.TargetEntityType.MappedToJsonColumnName();
+                        if (currentJsonColumnName == null || currentJsonColumnName != jsonColumnName)
                         {
-                            navigation.TargetEntityType.SetAnnotation(RelationalAnnotationNames.MapToJsonColumnName, annotation.Value);
-                            //navigation.TargetEntityType.SetAnnotation(RelationalAnnotationNames.TableName, tableName);
+                            navigation.TargetEntityType.SetAnnotation(RelationalAnnotationNames.MapToJsonColumnName, jsonColumnName);
                         }
                     }
                 }
@@ -60,14 +46,6 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                     // TODO: unwind everything
                 }
             }
-
-            // if table name changed for entity which owns other entities mapped to 
-            //if (name == RelationalAnnotationNames.TableName)
-            //{
-
-            //}
-
-
         }
     }
 }

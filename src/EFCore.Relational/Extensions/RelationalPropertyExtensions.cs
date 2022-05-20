@@ -103,19 +103,13 @@ public static class RelationalPropertyExtensions
             return (string?)columnAnnotation.Value;
         }
 
-        // HACK: for entity mapped to json we only have proper columns for the keys, for the rest we want to return null (so that we can catch it later and handle properly)
+        // for entity mapped to json we only have proper columns for the keys, for the rest we want to return null (so that we can catch it later and handle properly)
         // GetDefaultColumnName returns non-nullable, so just make it return emtpty string and convert to null here
         var result = GetDefaultColumnName(property, storeObject);
-        if (result == string.Empty && !string.IsNullOrEmpty(property.DeclaringEntityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string))
-        {
-            return null;
-        }
-        else
-        {
-            return result;
-        }
 
-        //return GetDefaultColumnName(property, storeObject);
+        return result == string.Empty && property.DeclaringEntityType.MappedToJson()
+            ? null
+            : result;
     }
 
     /// <summary>
@@ -146,9 +140,10 @@ public static class RelationalPropertyExtensions
             return sharedTablePrincipalConcurrencyProperty.GetColumnName(storeObject)!;
         }
 
-        if (!string.IsNullOrEmpty(property.DeclaringEntityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string))
+        // for properties on owned type mapped to json we don't really have column to map to,
+        // unless the property is part of the shared key (which is handled above)
+        if (property.DeclaringEntityType.MappedToJson())
         {
-            // for properties on owned type mapped to json we don't really have column to map to, unless the property is part of the shared key (which is handled above)
             return string.Empty;
         }
 
@@ -1331,7 +1326,8 @@ public static class RelationalPropertyExtensions
         var column = property.GetColumnName(storeObject);
         if (column == null)
         {
-            // for entities mapped to json, if column name was not returned the property is either contained in json, or (in case of collection), a synthesized key based on ordinal (or a FK to that key in it's owned)
+            // for entities mapped to json, if column name was not returned the property is either contained in json,
+            // or (in case of collection), a synthesized key based on ordinal (or a FK to that key in it's owned)
             // so just skip this, there is no shared objct root to speak of
             if (property.DeclaringEntityType.MappedToJson())
             {
@@ -1394,12 +1390,7 @@ public static class RelationalPropertyExtensions
                 break;
             }
 
-            if (string.IsNullOrEmpty(property?.DeclaringEntityType.FindAnnotation(RelationalAnnotationNames.MapToJsonColumnName)?.Value as string))
-            {
-                // original behavior
-                principalProperty = linkingRelationship.PrincipalKey.Properties[linkingRelationship.Properties.IndexOf(principalProperty)];
-            }
-            else
+            if (property.DeclaringEntityType.MappedToJson())
             {
                 // in case of collection mapped to json, part of the key could map to actual PK on the principal and part is generated (based on ordinal)
                 // so FindRowInternalForeignKeys can find a corresponding FK, but the property we are asking about doesn't actually map
@@ -1411,6 +1402,11 @@ public static class RelationalPropertyExtensions
                 }
 
                 principalProperty = linkingRelationship.PrincipalKey.Properties[index];
+            }
+            else
+            {
+                // original behavior
+                principalProperty = linkingRelationship.PrincipalKey.Properties[linkingRelationship.Properties.IndexOf(principalProperty)];
             }
         }
 

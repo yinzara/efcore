@@ -119,7 +119,7 @@ public class TableBase : Annotatable, ITableBase
         // maumar hack
         if (entityType.MappedToJson())
         {
-            return false;
+            //return false;
         }
 
         if (OptionalEntityTypes == null)

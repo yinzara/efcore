@@ -141,6 +141,7 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
                         _clientProjections!.Add(
                             _queryableMethodTranslatingExpressionVisitor.TranslateSubquery(
                                 materializeCollectionNavigationExpression.Subquery)!);
+
                         return new CollectionResultExpression(
                             // expression.Type will be CLR type of the navigation here so that is fine.
                             new ProjectionBindingExpression(_selectExpression, _clientProjections.Count - 1, expression.Type),
@@ -150,20 +151,10 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
                     case JsonCollectionResultExpression jsonCollectionResultExpression:
                         var projectionBinding = AddClientProjection(jsonCollectionResultExpression.JsonProjectionExpression, typeof(ValueBuffer));
 
-                        // IDK what to do here >.<
                         return new CollectionResultExpression(
                             projectionBinding,
                             jsonCollectionResultExpression.Navigation,
                             jsonCollectionResultExpression.Navigation.ClrType.GetSequenceType());
-
-                        //return AddClientProjection(jsonCollectionResultExpression, typeof(ValueBuffer));
-                        //_clientProjections!.Add(jsonCollectionResultExpression);
-
-                        //// IDK what to do here >.<
-                        //return new CollectionResultExpression(
-                        //    new ProjectionBindingExpression(_selectExpression, _clientProjections.Count - 1, expression.Type),
-                        //    jsonCollectionResultExpression.Navigation,
-                        //    jsonCollectionResultExpression.Navigation.ClrType.GetSequenceType());
 
                     case MethodCallExpression methodCallExpression:
                         if (methodCallExpression.Method.IsGenericMethod
@@ -304,21 +295,6 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
                         new ProjectionBindingExpression(_selectExpression, _projectionMembers.Peek(), typeof(ValueBuffer)));
                 }
 
-                //if (entityShaperExpression.ValueBufferExpression is JsonEntityExpression jsonEntityExpression)
-                //{
-                //    if (_indexBasedBinding)
-                //    {
-                //        var foo = AddClientProjection(jsonEntityExpression, typeof(ValueBuffer));
- 
-                //        return entityShaperExpression.Update(foo);
-                //    }
-
-                //    _projectionMapping[_projectionMembers.Peek()] = jsonEntityExpression;
-
-                //    return entityShaperExpression.Update(
-                //        new ProjectionBindingExpression(_selectExpression, _projectionMembers.Peek(), typeof(ValueBuffer)));
-                //}
-
                 if (entityShaperExpression.ValueBufferExpression is ProjectionBindingExpression projectionBindingExpression)
                 {
                     if (projectionBindingExpression.ProjectionMember == null
@@ -368,8 +344,7 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
                             && methodCallSubquery.Arguments[0] is MethodCallExpression selectSourceMethod
                             && selectSourceMethod.Method.IsGenericMethod
                             && methodCallSubquery.Arguments[1].UnwrapLambdaFromQuote() is LambdaExpression selectLambda
-                            // TODO check the identity projection
-                            )
+                            && selectLambda.Body == selectLambda.Parameters[0])
                         {
                             methodCallSubquery = selectSourceMethod;
                         }

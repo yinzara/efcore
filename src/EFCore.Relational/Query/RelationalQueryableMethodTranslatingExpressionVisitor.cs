@@ -1380,7 +1380,6 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                 ProjectionBindingExpression projectionBindingExpression
                     => (EntityProjectionExpression)_selectExpression.GetProjection(projectionBindingExpression),
                 EntityProjectionExpression entityProjectionExpression => entityProjectionExpression,
-                //EntityMappedToJsonProjectionExpression entityMappedToJsonProjectionExpression => entityMappedToJsonProjectionExpression,
                 _ => throw new InvalidOperationException()
             };
 
