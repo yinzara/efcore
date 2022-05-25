@@ -3149,7 +3149,8 @@ public sealed partial class SelectExpression : TableExpressionBase
     {
         if (IsDistinct
             || Limit != null
-            || Offset != null)
+            || Offset != null
+            || _groupBy.Count > 0)
         {
             PushdownIntoSubquery();
         }
