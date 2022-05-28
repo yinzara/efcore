@@ -84,8 +84,7 @@ public class EntityProjectionExpression : Expression
         var propertyExpressionMap = new Dictionary<IProperty, ColumnExpression>();
         foreach (var (property, columnExpression) in _propertyExpressionMap)
         {
-            var nullable = columnExpression.MakeNullable();
-            propertyExpressionMap[property] = nullable;
+            propertyExpressionMap[property] = columnExpression.MakeNullable(); 
         }
 
         var discriminatorExpression = DiscriminatorExpression;
@@ -114,12 +113,8 @@ public class EntityProjectionExpression : Expression
         var propertyExpressionMap = new Dictionary<IProperty, ColumnExpression>();
         foreach (var (property, columnExpression) in _propertyExpressionMap)
         {
-            // maumar:
-            // TODO: any other possibilities here?
-            var declaringEntityType = (property as IProperty)?.DeclaringEntityType ?? ((INavigation)property).DeclaringEntityType;
-
-            if (derivedType.IsAssignableFrom(declaringEntityType)
-                || declaringEntityType.IsAssignableFrom(derivedType))
+            if (derivedType.IsAssignableFrom(property.DeclaringEntityType)
+                || property.DeclaringEntityType.IsAssignableFrom(derivedType))
             {
                 propertyExpressionMap[property] = columnExpression;
             }
@@ -144,22 +139,7 @@ public class EntityProjectionExpression : Expression
     /// </summary>
     /// <param name="property">A property to bind.</param>
     /// <returns>A column which is a SQL representation of the property.</returns>
-    public virtual ColumnExpression BindKeyProperty(IProperty property)
-    {
-        if (!EntityType.IsAssignableFrom(property.DeclaringEntityType)
-            && !property.DeclaringEntityType.IsAssignableFrom(EntityType))
-        {
-            throw new InvalidOperationException(
-                RelationalStrings.UnableToBindMemberToEntityProjection("property", property.Name, EntityType.DisplayName()));
-        }
-
-        return (ColumnExpression)_propertyExpressionMap[property];
-    }
-
-    /// <summary>
-    ///     TODO
-    /// </summary>
-    public virtual SqlExpression BindProperty2(IProperty property)
+    public virtual ColumnExpression BindProperty(IProperty property)
     {
         if (!EntityType.IsAssignableFrom(property.DeclaringEntityType)
             && !property.DeclaringEntityType.IsAssignableFrom(EntityType))
@@ -170,6 +150,38 @@ public class EntityProjectionExpression : Expression
 
         return _propertyExpressionMap[property];
     }
+
+    ///// <summary>
+    /////     Binds a property with this entity projection to get the SQL representation.
+    ///// </summary>
+    ///// <param name="property">A property to bind.</param>
+    ///// <returns>A column which is a SQL representation of the property.</returns>
+    //public virtual ColumnExpression BindKeyProperty(IProperty property)
+    //{
+    //    if (!EntityType.IsAssignableFrom(property.DeclaringEntityType)
+    //        && !property.DeclaringEntityType.IsAssignableFrom(EntityType))
+    //    {
+    //        throw new InvalidOperationException(
+    //            RelationalStrings.UnableToBindMemberToEntityProjection("property", property.Name, EntityType.DisplayName()));
+    //    }
+
+    //    return (ColumnExpression)_propertyExpressionMap[property];
+    //}
+
+    ///// <summary>
+    /////     TODO
+    ///// </summary>
+    //public virtual SqlExpression BindProperty2(IProperty property)
+    //{
+    //    if (!EntityType.IsAssignableFrom(property.DeclaringEntityType)
+    //        && !property.DeclaringEntityType.IsAssignableFrom(EntityType))
+    //    {
+    //        throw new InvalidOperationException(
+    //            RelationalStrings.UnableToBindMemberToEntityProjection("property", property.Name, EntityType.DisplayName()));
+    //    }
+
+    //    return _propertyExpressionMap[property];
+    //}
 
     /// <summary>
     ///     Adds a navigation binding for this entity projection when the target entity type of the navigation is owned or weak.

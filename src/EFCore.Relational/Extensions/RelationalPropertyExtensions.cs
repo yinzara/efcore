@@ -113,12 +113,13 @@ public static class RelationalPropertyExtensions
             return (string?)columnAnnotation.Value;
         }
 
-        // GetDefaultColumnName returns non-nullable, so for json entity synthesized keys (which are not mapped) just make it return emtpty string and convert to null here
-        var result = GetDefaultColumnName(property, storeObject);
+        // json collection entity ordinal key is not mapped to any column
+        if (property.DeclaringEntityType.MappedToJson() && property.IsJsonMappedEntityCollectionOrdinalKeyProperty())
+        {
+            return null;
+        }
 
-        return result == string.Empty && property.DeclaringEntityType.MappedToJson()
-            ? null
-            : result;
+        return GetDefaultColumnName(property, storeObject);
     }
 
     /// <summary>
@@ -151,6 +152,8 @@ public static class RelationalPropertyExtensions
 
         if (property.DeclaringEntityType.MappedToJson())
         {
+            // only PKs that are unhandled by this point should be ordinal keys - not mapped to anything
+            // TODO: or should we just return "Id" as the default name here?
             return property.IsPrimaryKey()
                 ? string.Empty
                 : property.GetDefaultColumnBaseName();

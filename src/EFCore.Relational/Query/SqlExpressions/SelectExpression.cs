@@ -500,7 +500,7 @@ public sealed partial class SelectExpression : TableExpressionBase
                     Check.DebugAssert(primaryKey != null, "primary key is null.");
                     foreach (var property in primaryKey.Properties)
                     {
-                        entityProjectionIdentifiers.Add(entityProjection.BindKeyProperty(property));
+                        entityProjectionIdentifiers.Add(entityProjection.BindProperty(property));
                         entityProjectionValueComparers.Add(property.GetKeyValueComparer());
                     }
                 }
@@ -598,7 +598,7 @@ public sealed partial class SelectExpression : TableExpressionBase
         {
             foreach (var property in GetAllPropertiesInHierarchy(entityProjectionExpression.EntityType))
             {
-                AddToProjection(entityProjectionExpression.BindProperty2(property), null);
+                AddToProjection(entityProjectionExpression.BindProperty(property), null);
             }
 
             if (entityProjectionExpression.DiscriminatorExpression != null)
@@ -1278,7 +1278,7 @@ public sealed partial class SelectExpression : TableExpressionBase
             var dictionary = new Dictionary<IProperty, int>();
             foreach (var property in GetAllPropertiesInHierarchy(entityProjectionExpression.EntityType))
             {
-                dictionary[property] = AddToProjection(entityProjectionExpression.BindProperty2(property), null);
+                dictionary[property] = AddToProjection(entityProjectionExpression.BindProperty(property), null);
             }
 
             if (entityProjectionExpression.DiscriminatorExpression != null)
@@ -2137,25 +2137,14 @@ public sealed partial class SelectExpression : TableExpressionBase
             var propertyExpressions = new Dictionary<IProperty, ColumnExpression>();
             foreach (var property in GetAllPropertiesInHierarchy(projection1.EntityType))
             {
-                var binding1 = projection1.BindProperty2(property);
-                var binding2 = projection2.BindProperty2(property);
-
-                // maumar - TEMPORARY HACK!!!!
-                var column1 = (ColumnExpression)binding1;
-                var column2 = (ColumnExpression)binding2;
+                var column1 = projection1.BindProperty(property);
+                var column2 = projection2.BindProperty(property);
 
                 var alias = GenerateUniqueColumnAlias(column1.Name);
-                //var alias = GenerateUniqueColumnAlias(binding1 is ColumnExpression column1 ? column1.Name : property.Name);
-                var innerProjection = new ProjectionExpression(binding1, alias);
+                var innerProjection = new ProjectionExpression(column1, alias);
                 select1._projection.Add(innerProjection);
-                select2._projection.Add(new ProjectionExpression(binding2, alias));
+                select2._projection.Add(new ProjectionExpression(column2, alias));
                 var outerExpression = new ConcreteColumnExpression(innerProjection, tableReferenceExpression);
-
-                //if (binding1 is not ColumnExpression || ((ColumnExpression)binding1).IsNullable
-                //    || binding2 is not ColumnExpression || ((ColumnExpression)binding2).IsNullable)
-                //{
-                //    outerExpression = outerExpression.MakeNullable();
-                //}
 
                 if (column1.IsNullable
                     || column2.IsNullable)
@@ -3311,7 +3300,7 @@ public sealed partial class SelectExpression : TableExpressionBase
                     {
                         foreach (var property in GetAllPropertiesInHierarchy(entityProjection.EntityType))
                         {
-                            result.Add(entityProjection.BindProperty2(property));
+                            result.Add(entityProjection.BindProperty(property));
                         }
 
                         if (entityProjection.DiscriminatorExpression != null

@@ -1316,7 +1316,7 @@ public class RelationalSqlTranslatingExpressionVisitor : ExpressionVisitor
 
 
             var entityProjectionExpression = (EntityProjectionExpression)valueBufferExpression;
-            var propertyAccess = entityProjectionExpression.BindProperty2(property);
+            var propertyAccess = entityProjectionExpression.BindProperty(property);
 
             var entityType = entityReferenceExpression.EntityType;
             if (entityType.FindDiscriminatorProperty() != null
@@ -1344,7 +1344,7 @@ public class RelationalSqlTranslatingExpressionVisitor : ExpressionVisitor
 
             var condition = nonPrincipalSharedNonPkProperties
                 .Where(e => !e.IsNullable)
-                .Select(p => entityProjectionExpression.BindProperty2(p))
+                .Select(p => entityProjectionExpression.BindProperty(p))
                 .Select(c => (SqlExpression)_sqlExpressionFactory.NotEqual(c, _sqlExpressionFactory.Constant(null)))
                 .Aggregate((a, b) => _sqlExpressionFactory.AndAlso(a, b));
 
@@ -1363,7 +1363,7 @@ public class RelationalSqlTranslatingExpressionVisitor : ExpressionVisitor
 
             var projectionBindingExpression = (ProjectionBindingExpression)entityShaper.ValueBufferExpression;
             var entityProjectionExpression = (EntityProjectionExpression)subSelectExpression.GetProjection(projectionBindingExpression);
-            var innerProjection = entityProjectionExpression.BindProperty2(property);
+            var innerProjection = entityProjectionExpression.BindProperty(property);
             subSelectExpression.ReplaceProjection(new List<Expression> { innerProjection });
             subSelectExpression.ApplyProjection();
 

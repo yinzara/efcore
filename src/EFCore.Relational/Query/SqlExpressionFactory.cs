@@ -617,7 +617,7 @@ public class SqlExpressionFactory : ISqlExpressionFactory
                 || !entityType.GetAllBaseTypesInclusiveAscending()
                     .All(e => (e == entityType || e.IsAbstract()) && !HasSiblings(e))))
         {
-            var discriminatorColumn = GetMappedEntityProjectionExpression(selectExpression).BindProperty2(discriminatorProperty);
+            var discriminatorColumn = GetMappedEntityProjectionExpression(selectExpression).BindProperty(discriminatorProperty);
             var concreteEntityTypes = entityType.GetConcreteDerivedTypesInclusive().ToList();
             var predicate = concreteEntityTypes.Count == 1
                 ? (SqlExpression)Equal(discriminatorColumn, Constant(concreteEntityTypes[0].GetDiscriminatorValue()))
@@ -662,5 +662,5 @@ public class SqlExpressionFactory : ISqlExpressionFactory
             new ProjectionBindingExpression(selectExpression, new ProjectionMember(), typeof(ValueBuffer)));
 
     private SqlExpression IsNotNull(IProperty property, EntityProjectionExpression entityProjection)
-        => IsNotNull(entityProjection.BindProperty2(property));
+        => IsNotNull(entityProjection.BindProperty(property));
 }

@@ -850,7 +850,7 @@ public static class RelationalEntityTypeExtensions
             var principalEntityType = foreignKey.PrincipalEntityType;
 
             var pkPropertiesToMatch = mappedToJson
-                ? primaryKey.Properties.Take(foreignKey.Properties.Count).ToList().AsReadOnly()
+                ? primaryKey.Properties.Where(p => !p.IsJsonMappedEntityCollectionOrdinalKeyProperty()).ToList().AsReadOnly()
                 : primaryKey.Properties;
 
             if (!foreignKey.PrincipalKey.IsPrimaryKey()
