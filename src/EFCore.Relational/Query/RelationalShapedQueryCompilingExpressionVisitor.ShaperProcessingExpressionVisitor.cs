@@ -1075,6 +1075,27 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
             }
         }
 
+        public static bool ShouldMaterializeJsonEntity(object element, List<string> navigationPath)
+        {
+            var currentElement = (JsonElement)element;
+
+            if (currentElement.ValueKind == JsonValueKind.Null)
+            {
+                return false;
+            }
+
+            foreach (var navigationPathElement in navigationPath)
+            {
+                var found = currentElement.TryGetProperty(navigationPathElement, out currentElement);
+                if (!found || currentElement.ValueKind == JsonValueKind.Null)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         protected override Expression VisitMethodCall(MethodCallExpression methodCallExpression)
         {
             if (methodCallExpression.Method.IsGenericMethod

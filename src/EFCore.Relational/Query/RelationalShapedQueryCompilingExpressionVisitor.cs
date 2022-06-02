@@ -171,8 +171,20 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor : ShapedQue
             return base.VisitBinary(binaryExpression);
         }
 
+        private readonly MethodInfo _shouldMaterializeJsonEntityStubMethod = typeof(RelationalEntityShaperExpression).GetMethod(nameof(RelationalEntityShaperExpression.ShouldMaterializeJsonEntityStub))!;
+        private readonly MethodInfo _shouldMaterializeJsonEntityMethod = typeof(JsonMappedEntityCompilingExpressionVisitor).GetMethod(nameof(ShouldMaterializeJsonEntity))!;
+
         protected override Expression VisitMethodCall(MethodCallExpression methodCallExpression)
         {
+            if (methodCallExpression.Method == _shouldMaterializeJsonEntityStubMethod)
+            {
+                var mappingParameter = (ParameterExpression)((MethodCallExpression)methodCallExpression.Arguments[0]).Object!;
+                var jsonElementParameter = _materializationContextParameterMapping[mappingParameter].Item2;
+                var jsonPath = (ConstantExpression)methodCallExpression.Arguments[1];
+
+                return Expression.Call(null, _shouldMaterializeJsonEntityMethod, jsonElementParameter, jsonPath);
+            }
+
             if (methodCallExpression.Method.IsGenericMethod
                 && methodCallExpression.Method.GetGenericMethodDefinition()
                 == Infrastructure.ExpressionExtensions.ValueBufferTryReadValueMethod)
@@ -345,6 +357,26 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor : ShapedQue
             }
 
             return base.VisitExtension(extensionExpression);
+        }
+
+        public static bool ShouldMaterializeJsonEntity(JsonElement element, List<string> navigationPath)
+        {
+            var currentElement = element;
+            if (currentElement.ValueKind == JsonValueKind.Null)
+            {
+                return false;
+            }
+
+            //foreach (var navigationPathElement in navigationPath)
+            //{
+            //    var found = currentElement.TryGetProperty(navigationPathElement, out currentElement);
+            //    if (!found || currentElement.ValueKind == JsonValueKind.Null)
+            //    {
+            //        return false;
+            //    }
+            //}
+
+            return true;
         }
 
         public static void MaterializeIncludedJsonEntity<TIncludingEntity, TIncludedEntity>(

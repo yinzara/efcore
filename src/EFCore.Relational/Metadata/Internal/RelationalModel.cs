@@ -443,6 +443,9 @@ public class RelationalModel : Annotatable, IRelationalModel
 
                 if (column == null)
                 {
+                    // TODO: for json entities there is some abiguity - if there is property on the owner entity with the same name as the property on the owned, json mapped entity
+                    // the columns will look the same - column name, type and table are the same, but they are two different columns!
+                    // Should we add faux table for those columns or something to distinguish or just rely on property mappings to tell them apart?
                     column = new(columnName, property.GetColumnType(mappedTable), table)
                     {
                         IsNullable = property.IsColumnNullable(mappedTable)

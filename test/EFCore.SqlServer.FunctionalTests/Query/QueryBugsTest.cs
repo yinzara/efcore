@@ -10686,14 +10686,27 @@ WHERE [e].[TimeSpan] = @__parameter_0");
             var jsonReference = JsonSerializer.Serialize(entity1.OwnedReferenceSharedRoot);
             var jsonCollection = JsonSerializer.Serialize(entity1.OwnedCollectionSharedRoot);
 
+
+
+            var optionalTopLevel = JsonSerializer.Serialize(default(MyOwnedRootShared));
+
+            var optionalBranch = new MyOwnedRootShared { Name = "OptionalRoot", Number = 20, OwnedReferenceSharedBranch = null, OwnedCollectionSharedBranch = null };
+            var optionalBranchSerialized = JsonSerializer.Serialize(optionalBranch);
+
+
         }
 
         using (var ctx = new MyContext())
         {
-            var query1 = ctx.MyEntities.Select(x => x.OwnedReferenceSharedRoot.OwnedReferenceSharedBranch).AsNoTracking().ToList();
+
+
+
+            //var query1 = ctx.MyEntities.Select(x => x.OwnedReferenceSharedRoot.OwnedReferenceSharedBranch).AsNoTracking().ToList();
             var query2 = ctx.MyEntities.Select(x => x.OwnedReferenceSharedRoot).AsNoTracking().ToList();
-            var query3 = ctx.MyEntities.Select(x => x.OwnedCollectionSharedRoot).AsNoTracking().ToList();
-            var query4 = ctx.MyEntities.Select(x => x.OwnedReferenceSharedRoot.OwnedReferenceSharedBranch.OwnedCollectionSharedLeaf).AsNoTracking().ToList();
+            //var query2 = ctx.MyEntities.Select(x => x.OwnedReferenceSharedRoot).AsNoTracking().ToList();
+            //var query3 = ctx.MyEntities.Select(x => x.OwnedCollectionSharedRoot).AsNoTracking().ToList();
+            //var query4 = ctx.MyEntities.Select(x => x.OwnedReferenceSharedRoot.OwnedReferenceSharedBranch.OwnedCollectionSharedLeaf).AsNoTracking().ToList();
+            var query4ipol = ctx.MyEntities.Select(x => x.OwnedReferenceSharedRoot.OwnedReferenceSharedBranch.OwnedReferenceSharedLeaf).AsNoTracking().ToList();
 
             var query5 = ctx.MyEntities.Select(x => new
             {
