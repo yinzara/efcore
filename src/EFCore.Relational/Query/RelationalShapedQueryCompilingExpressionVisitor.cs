@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
@@ -120,11 +121,49 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor : ShapedQue
             Expression.Constant(_threadSafetyChecksEnabled));
     }
 
+    private sealed class JsonCollectionResultInternalExpression : Expression
+    {
+        public JsonCollectionResultInternalExpression(
+            JsonValueBufferExpression valueBufferExpression,
+            INavigationBase? navigation,
+            Type elementType)
+        {
+            ValueBufferExpression = valueBufferExpression;
+            Navigation = navigation;
+            ElementType = elementType;
+        }
+
+        public JsonValueBufferExpression ValueBufferExpression { get; }
+
+        public INavigationBase? Navigation { get; }
+
+        public Type ElementType { get; }
+    }
+
+    private sealed class JsonValueBufferExpression : Expression
+    {
+        public JsonValueBufferExpression(
+            ParameterExpression keyValuesParameter,
+            ParameterExpression jsonElementParameter)
+        {
+            KeyValuesParameter = keyValuesParameter;
+            JsonElementParameter = jsonElementParameter;
+        }
+
+        public ParameterExpression KeyValuesParameter { get; }
+        public ParameterExpression JsonElementParameter { get; }
+
+        public override Type Type => typeof(ValueBuffer);
+    }
+
+
     private class JsonMappedEntityCompilingExpressionVisitor : ExpressionVisitor
     {
         private readonly MethodInfo _materializeIncludedJsonEntityMethodInfo = typeof(JsonMappedEntityCompilingExpressionVisitor).GetMethod(nameof(MaterializeIncludedJsonEntity))!;
+        private readonly MethodInfo _materializeIncludedJsonEntityCollectionMethodInfo = typeof(JsonMappedEntityCompilingExpressionVisitor).GetMethod(nameof(MaterializeIncludedJsonEntityCollection))!;
         private readonly MethodInfo _materializeRootJsonEntityMethodInfo = typeof(JsonMappedEntityCompilingExpressionVisitor).GetMethod(nameof(MaterializeRootJsonEntity))!;
         private readonly MethodInfo _materializeRootJsonEntityCollectionMethodInfo = typeof(JsonMappedEntityCompilingExpressionVisitor).GetMethod(nameof(MaterializeRootJsonEntityCollection))!;
+
         private readonly MethodInfo _extractJsonPropertyMethodInfo = typeof(ShaperProcessingExpressionVisitor).GetMethod(nameof(ShaperProcessingExpressionVisitor.ExtractJsonProperty))!;
         private readonly MethodInfo _jsonElementGetPropertyMethod = typeof(JsonElement).GetMethod(nameof(JsonElement.GetProperty), new[] { typeof(string) })!;
 
@@ -171,20 +210,8 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor : ShapedQue
             return base.VisitBinary(binaryExpression);
         }
 
-        private readonly MethodInfo _shouldMaterializeJsonEntityStubMethod = typeof(RelationalEntityShaperExpression).GetMethod(nameof(RelationalEntityShaperExpression.ShouldMaterializeJsonEntityStub))!;
-        private readonly MethodInfo _shouldMaterializeJsonEntityMethod = typeof(JsonMappedEntityCompilingExpressionVisitor).GetMethod(nameof(ShouldMaterializeJsonEntity))!;
-
         protected override Expression VisitMethodCall(MethodCallExpression methodCallExpression)
         {
-            if (methodCallExpression.Method == _shouldMaterializeJsonEntityStubMethod)
-            {
-                var mappingParameter = (ParameterExpression)((MethodCallExpression)methodCallExpression.Arguments[0]).Object!;
-                var jsonElementParameter = _materializationContextParameterMapping[mappingParameter].Item2;
-                var jsonPath = (ConstantExpression)methodCallExpression.Arguments[1];
-
-                return Expression.Call(null, _shouldMaterializeJsonEntityMethod, jsonElementParameter, jsonPath);
-            }
-
             if (methodCallExpression.Method.IsGenericMethod
                 && methodCallExpression.Method.GetGenericMethodDefinition()
                 == Infrastructure.ExpressionExtensions.ValueBufferTryReadValueMethod)
@@ -219,7 +246,7 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor : ShapedQue
 
         protected override Expression VisitExtension(Expression extensionExpression)
         {
-            if (extensionExpression is CollectionResultExpression or RelationalEntityShaperExpression)
+            if (extensionExpression is JsonCollectionResultInternalExpression or RelationalEntityShaperExpression)
             {
                 var valueBufferParameter = Expression.Parameter(typeof(ValueBuffer));
                 var keyValuesShaperLambdaParameter = Expression.Parameter(typeof(object[]));
@@ -228,14 +255,13 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor : ShapedQue
                 _valueBufferParameterMapping[valueBufferParameter] = (keyValuesShaperLambdaParameter, jsonElementShaperLambdaParameter);
 
                 var targetEntityType = extensionExpression is CollectionResultExpression
-                    ? ((CollectionResultExpression)extensionExpression).Navigation!.TargetEntityType
+                    ? ((JsonCollectionResultInternalExpression)extensionExpression).Navigation!.TargetEntityType
                     : ((RelationalEntityShaperExpression)extensionExpression).EntityType;
 
-                // TODO: fix nullability 
                 var nullable = (extensionExpression as RelationalEntityShaperExpression)?.IsNullable ?? false;
                 var shaperExpression = new RelationalEntityShaperExpression(
                     targetEntityType,
-                    valueBufferParameter,
+                    valueBufferParameter,//TODO!!!
                     nullable);
 
                 var shaperBlockVariables = new List<ParameterExpression>();
@@ -274,22 +300,27 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor : ShapedQue
 
                     if (ownedNavigation.IsCollection)
                     {
+                        var nestedJsonCollectionShaper = new JsonCollectionResultInternalExpression(
+                            new JsonValueBufferExpression(keyValuesShaperLambdaParameter, jsonElement),
+                            ownedNavigation,
+                            ownedNavigation.TargetEntityType.ClrType);
+
                         // we don't use projection binding at this level, so we can just use a dummy
                         // TODO: alternative: rewrite the collection result expression on the level above this into a new structure that doesn't have the unnecessary stuff
-                        var dummyProjectionBinding = new ProjectionBindingExpression(Expression.Constant(ValueBuffer.Empty), 0, typeof(object));
-                        var fubson = new CollectionResultExpression(dummyProjectionBinding, ownedNavigation, ownedNavigation.TargetEntityType.ClrType);
+                        //var dummyProjectionBinding = new ProjectionBindingExpression(Expression.Constant(ValueBuffer.Empty), 0, typeof(object));
+                        //var fubson = new CollectionResultExpression(dummyProjectionBinding, ownedNavigation, ownedNavigation.TargetEntityType.ClrType);
 
-                        var nestedResult = nestedVisitor.Visit(fubson);
+                        var nestedResult = nestedVisitor.Visit(nestedJsonCollectionShaper);
                         shaperBlockExpressions.Add(nestedResult);
                     }
                     else
                     {
-                        var other = new RelationalEntityShaperExpression(
+                        var nestedJsonEntityShaper = new RelationalEntityShaperExpression(
                             ownedNavigation.TargetEntityType,
-                            Expression.Constant(ValueBuffer.Empty), // dummy, gets replaced when visited
+                            new JsonValueBufferExpression(keyValuesShaperLambdaParameter, jsonElement),
                             nullable: false);// TODO: fix nullability
 
-                        var nestedResult = nestedVisitor.Visit(other);
+                        var nestedResult = nestedVisitor.Visit(nestedJsonEntityShaper);
                         shaperBlockExpressions.Add(nestedResult);
                     }
                 }
@@ -314,6 +345,26 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor : ShapedQue
                         _navigation,
                         _navigation.Inverse);
 
+                    if (_navigation.IsCollection)
+                    {
+                        var materializeIncludedJsonEntityCollectionMethodCall = Expression.Call(
+                            null,
+                            _materializeIncludedJsonEntityCollectionMethodInfo.MakeGenericMethod(_includingEntity.Type, _navigation.TargetEntityType.ClrType),
+                            QueryCompilationContext.QueryContextParameter,
+                            _jsonElement,
+                            _keyValuesParameter,
+                            _includingEntity,
+                            innerShaperLambda,
+                            fixup);
+
+                        return materializeIncludedJsonEntityCollectionMethodCall;
+                    }
+
+                    var entityType = _navigation.DeclaringEntityType;
+                    var table = entityType.GetViewOrTableMappings().SingleOrDefault()?.Table
+                        ?? entityType.GetDefaultMappings().Single().Table;
+
+                    var isOptionalDependent = table.IsOptional(entityType);
                     var materializeIncludedJsonEntityMethodCall = Expression.Call(
                         null,
                         _materializeIncludedJsonEntityMethodInfo.MakeGenericMethod(_includingEntity.Type, _navigation.TargetEntityType.ClrType),
@@ -321,7 +372,7 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor : ShapedQue
                         _jsonElement,
                         _keyValuesParameter,
                         _includingEntity,
-                        Expression.Constant(_navigation),
+                        Expression.Constant(isOptionalDependent),
                         innerShaperLambda,
                         fixup);
 
@@ -359,56 +410,56 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor : ShapedQue
             return base.VisitExtension(extensionExpression);
         }
 
-        public static bool ShouldMaterializeJsonEntity(JsonElement element, List<string> navigationPath)
-        {
-            var currentElement = element;
-            if (currentElement.ValueKind == JsonValueKind.Null)
-            {
-                return false;
-            }
-
-            //foreach (var navigationPathElement in navigationPath)
-            //{
-            //    var found = currentElement.TryGetProperty(navigationPathElement, out currentElement);
-            //    if (!found || currentElement.ValueKind == JsonValueKind.Null)
-            //    {
-            //        return false;
-            //    }
-            //}
-
-            return true;
-        }
-
         public static void MaterializeIncludedJsonEntity<TIncludingEntity, TIncludedEntity>(
             QueryContext queryContext,
             JsonElement jsonElement,
             object[] keyPropertyValues,
             TIncludingEntity entity,
-            INavigationBase navigation,
+            bool isOptionalDependent,
             Func<QueryContext, object[], JsonElement, TIncludedEntity> innerShaper,
             Action<TIncludingEntity, TIncludedEntity> fixup)
             where TIncludingEntity : class
             where TIncludedEntity : class
         {
-            if (navigation.IsCollection)
+            if (jsonElement.ValueKind == JsonValueKind.Null)
             {
-                var newKeyPropertyValues = new object[keyPropertyValues.Length + 1];
-                Array.Copy(keyPropertyValues, newKeyPropertyValues, keyPropertyValues.Length);
-
-                var i = 0;
-                foreach (var jsonArrayElement in jsonElement.EnumerateArray())
+                if (isOptionalDependent)
                 {
-                    newKeyPropertyValues[^1] = ++i;
-
-                    var resultElement = innerShaper(queryContext, newKeyPropertyValues, jsonArrayElement);
-
-                    fixup(entity, resultElement);
+                    return;
+                }
+                else
+                {
+                    throw new InvalidOperationException("Required Json entity not found.");
                 }
             }
             else
             {
                 var included = innerShaper(queryContext, keyPropertyValues, jsonElement);
                 fixup(entity, included);
+            }
+        }
+
+        public static void MaterializeIncludedJsonEntityCollection<TIncludingEntity, TIncludedCollectionElement>(
+            QueryContext queryContext,
+            JsonElement jsonElement,
+            object[] keyPropertyValues,
+            TIncludingEntity entity,
+            Func<QueryContext, object[], JsonElement, TIncludedCollectionElement> innerShaper,
+            Action<TIncludingEntity, TIncludedCollectionElement> fixup)
+            where TIncludingEntity : class
+            where TIncludedCollectionElement : class
+        {
+            var newKeyPropertyValues = new object[keyPropertyValues.Length + 1];
+            Array.Copy(keyPropertyValues, newKeyPropertyValues, keyPropertyValues.Length);
+
+            var i = 0;
+            foreach (var jsonArrayElement in jsonElement.EnumerateArray())
+            {
+                newKeyPropertyValues[^1] = ++i;
+
+                var resultElement = innerShaper(queryContext, newKeyPropertyValues, jsonArrayElement);
+
+                fixup(entity, resultElement);
             }
         }
 

@@ -485,7 +485,12 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
                             navigation: null,//includeExpression.Navigation,
                             _parentVisitor);
 
-                        var myResult = jsonMappedEntityCompilingExpressionVisitor.Visit(entityShaperExpression);
+                        var updatedEntityShaperExpression = new RelationalEntityShaperExpression(
+                            entityShaperExpression.EntityType,
+                            new JsonValueBufferExpression(keyValuesParameter, jsonElementVariable),
+                            entityShaperExpression.IsNullable);
+
+                        var myResult = jsonMappedEntityCompilingExpressionVisitor.Visit(updatedEntityShaperExpression);
                         var resultAssignment = Expression.Assign(entityParameter, myResult);
 
                         _expressions.Add(resultAssignment);
@@ -558,7 +563,12 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor
                         navigation: null,//includeExpression.Navigation,
                         _parentVisitor);
 
-                    var myResult = jsonMappedEntityCompilingExpressionVisitor.Visit(collectionResultExpression);
+                    var updatedCollectionResultExpression = new JsonCollectionResultInternalExpression(
+                        new JsonValueBufferExpression(keyValuesParameter, jsonElementVariable),
+                        collectionResultExpression.Navigation,
+                        collectionResultExpression.ElementType);
+
+                    var myResult = jsonMappedEntityCompilingExpressionVisitor.Visit(updatedCollectionResultExpression);
                     var resultAssignment = Expression.Assign(entityCollectionParameter, myResult);
 
                     _expressions.Add(resultAssignment);

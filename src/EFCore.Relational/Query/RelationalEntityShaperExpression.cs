@@ -103,30 +103,32 @@ public class RelationalEntityShaperExpression : EntityShaperExpression
             var valueBufferParameter = baseCondition.Parameters[0];
             if (entityType.MappedToJson())
             {
-                var jsonPath = new List<string>();
+                return baseCondition;
 
-                //var jsonColumnName = entityType.MappedToJsonColumnName();
-                //var jsonColumn = table.Columns.Single(c => c.Name == jsonColumnName);
+                //var jsonPath = new List<string>();
 
-                var currentEntity = entityType;
-                while (currentEntity.MappedToJson())
-                {
-                    var ownership = currentEntity.FindOwnership();
-                    var principalType = ownership!.PrincipalEntityType;
-                    var navigation = principalType.GetNavigations().Single(n => n.TargetEntityType == currentEntity);
+                ////var jsonColumnName = entityType.MappedToJsonColumnName();
+                ////var jsonColumn = table.Columns.Single(c => c.Name == jsonColumnName);
 
-                    currentEntity = principalType;
-                    if (currentEntity.MappedToJson())
-                    {
-                        // TODO: check for custom json name
-                        jsonPath.Insert(0, navigation.Name);
-                    }
-                }
+                //var currentEntity = entityType;
+                //while (currentEntity.MappedToJson())
+                //{
+                //    var ownership = currentEntity.FindOwnership();
+                //    var principalType = ownership!.PrincipalEntityType;
+                //    var navigation = principalType.GetNavigations().Single(n => n.TargetEntityType == currentEntity);
 
-                var method = typeof(RelationalEntityShaperExpression).GetMethod(nameof(ShouldMaterializeJsonEntityStub))!;
-                var jsonCondition = Call(null, method, valueBufferParameter, Constant(jsonPath));
+                //    currentEntity = principalType;
+                //    if (currentEntity.MappedToJson())
+                //    {
+                //        // TODO: check for custom json name
+                //        jsonPath.Insert(0, navigation.Name);
+                //    }
+                //}
 
-                return Lambda(Condition(jsonCondition, baseCondition.Body, Default(typeof(IEntityType))), valueBufferParameter);
+                //var method = typeof(RelationalEntityShaperExpression).GetMethod(nameof(ShouldMaterializeJsonEntityStub))!;
+                //var jsonCondition = Call(null, method, valueBufferParameter, Constant(jsonPath));
+
+                //return Lambda(Condition(jsonCondition, baseCondition.Body, Default(typeof(IEntityType))), valueBufferParameter);
 
 
                 //var principalType = ownership!.PrincipalEntityType;
@@ -173,35 +175,4 @@ public class RelationalEntityShaperExpression : EntityShaperExpression
         => valueBufferExpression != ValueBufferExpression
             ? new RelationalEntityShaperExpression(EntityType, valueBufferExpression, IsNullable, MaterializationCondition)
             : this;
-
-    /// <summary>
-    /// TODO
-    /// </summary>
-    public static bool ShouldMaterializeJsonEntityStub(ValueBuffer valueBuffer, List<string> navigationPath)
-        => true;
-
-    ///// <summary>
-    ///// TODO
-    ///// </summary>
-    //public static bool ShouldMaterializeJsonEntity(object element, List<string> navigationPath)
-    //{
-    //    //TODO: find better place for this
-    //    var currentElement = (JsonElement)element;
-
-    //    if (currentElement.ValueKind == JsonValueKind.Null)
-    //    {
-    //        return false;
-    //    }
-
-    //    foreach (var navigationPathElement in navigationPath)
-    //    {
-    //        var found = currentElement.TryGetProperty(navigationPathElement, out currentElement);
-    //        if (!found || currentElement.ValueKind == JsonValueKind.Null)
-    //        {
-    //            return false;
-    //        }
-    //    }
-
-    //    return true;
-    //}
 }
