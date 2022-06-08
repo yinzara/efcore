@@ -1335,7 +1335,7 @@ public static class RelationalPropertyExtensions
         if (property.DeclaringEntityType.MappedToJson())
         {
             //JSON-splitting is not supported
-            return property;
+            return null;
         }
 
         var column = property.GetColumnName(storeObject);

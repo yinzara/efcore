@@ -344,7 +344,29 @@ public sealed partial class SelectExpression : TableExpressionBase
                     propertyExpressions[property] = CreateColumnExpression(property, table, tableReferenceExpression, nullable: false);
                 }
 
-                var entityProjection = new EntityProjectionExpression(entityType, propertyExpressions);
+                var jsonNavigationMap = new Dictionary<INavigation, EntityShaperExpression>();
+                foreach (var ownedJsonNavigation in entityType.GetNavigations().Where(n => n.ForeignKey.IsOwnership && n.TargetEntityType.MappedToJson()))
+                {
+                    var targetEntityType = ownedJsonNavigation.TargetEntityType;
+                    var jsonColumnName = targetEntityType.MappedToJsonColumnName()!;
+                    var jsonColumnTypeMapping = (RelationalTypeMapping)targetEntityType.FindRuntimeAnnotationValue(RelationalAnnotationNames.MapToJsonTypeMapping)!;
+
+                    var jsonColumn = new ConcreteColumnExpression(
+                        jsonColumnName,
+                        FindTableReference(this, tableExpression),
+                        jsonColumnTypeMapping.ClrType,
+                        jsonColumnTypeMapping,
+                        nullable: true);
+
+                    var entityShaperExpression = new EntityShaperExpression(
+                        targetEntityType,
+                        new JsonQueryExpression(jsonColumn),
+                        !ownedJsonNavigation.ForeignKey.IsRequired);
+
+                    jsonNavigationMap[ownedJsonNavigation] = entityShaperExpression;
+                }
+
+                var entityProjection = new EntityProjectionExpression(entityType, propertyExpressions, jsonNavigationMap);
                 _projectionMapping[new ProjectionMember()] = entityProjection;
 
                 var primaryKey = entityType.FindPrimaryKey();
@@ -364,6 +386,13 @@ public sealed partial class SelectExpression : TableExpressionBase
 
         static ITableBase GetTableBaseFiltered(IEntityType entityType, List<ITableBase> existingTables)
             => entityType.GetViewOrTableMappings().Single(m => !existingTables.Contains(m.Table)).Table;
+    }
+
+    private static TableReferenceExpression FindTableReference(SelectExpression selectExpression, TableExpressionBase tableExpression)
+    {
+        var tableIndex = selectExpression._tables.FindIndex(e => ReferenceEquals(e, tableExpression));
+
+        return selectExpression._tableReferences[tableIndex];
     }
 
     internal SelectExpression(IEntityType entityType, TableExpressionBase tableExpressionBase)

@@ -1254,11 +1254,9 @@ public class QuerySqlGenerator : SqlExpressionVisitor
 
     /// <inheritdoc />
     protected override Expression VisitJsonPathExpression(JsonPathExpression jsonPathExpression)
-    {
-        _relationalCommandBuilder.Append("JSON(");
-        Visit(jsonPathExpression.JsonColumn);
-        Sql.Append($", {string.Join(".", jsonPathExpression.JsonPath)})");
+        => throw new InvalidOperationException("This node should be handled by provider-specific sql generator.");
 
-        return jsonPathExpression;
-    }
+    /// <inheritdoc />
+    protected override Expression VisitJsonScalarExpression(JsonScalarExpression jsonScalarExpression)
+        => throw new InvalidOperationException("This node should be handled by provider-specific sql generator.");
 }

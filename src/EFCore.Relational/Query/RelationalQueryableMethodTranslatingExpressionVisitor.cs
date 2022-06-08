@@ -1083,6 +1083,12 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                 return null;
             }
 
+            if (entityShaperExpression.ValueBufferExpression is JsonQueryExpression jsonQueryExpression)
+            {
+
+            }
+
+
             if (entityShaperExpression.ValueBufferExpression is JsonProjectionExpression jsonProjection)
             {
                 // accessing json entity in the query rather than from auto-include expansion
@@ -1108,8 +1114,22 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
             }
 
             var entityProjectionExpression = GetEntityProjectionExpression(entityShaperExpression);
-
             var foreignKey = navigation.ForeignKey;
+
+            if (targetEntityType.MappedToJson())
+            {
+                if (navigation.IsCollection)
+                {
+
+                }
+
+                var innerShaper2 = entityProjectionExpression.BindNavigation(navigation);
+                if (innerShaper2 == null)
+                {
+
+                }
+            }
+
             if (navigation.IsCollection)
             {
                 if (targetEntityType.MappedToJson())
@@ -1118,8 +1138,8 @@ public class RelationalQueryableMethodTranslatingExpressionVisitor : QueryableMe
                     var identifyingColumn = entityProjectionExpression.BindProperty(entityType.FindPrimaryKey()!.Properties.First());
                     var principalNullable = identifyingColumn.IsNullable;
 
-                    var jsonColumnName = targetEntityType.GetAnnotation(RelationalAnnotationNames.MapToJsonColumnName).Value as string;
-                    var jsonColumnTypeMapping = targetEntityType.FindRuntimeAnnotationValue(RelationalAnnotationNames.MapToJsonTypeMapping) as RelationalTypeMapping;
+                    var jsonColumnName = (string)targetEntityType.GetAnnotation(RelationalAnnotationNames.MapToJsonColumnName).Value!;
+                    var jsonColumnTypeMapping = (RelationalTypeMapping)targetEntityType.FindRuntimeAnnotationValue(RelationalAnnotationNames.MapToJsonTypeMapping)!;
 
                     var jsonColumn = table.Columns.Single(x => x.Name == jsonColumnName);
 
