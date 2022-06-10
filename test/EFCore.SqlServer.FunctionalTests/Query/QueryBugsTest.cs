@@ -10699,7 +10699,7 @@ WHERE [e].[TimeSpan] = @__parameter_0");
         using (var ctx = new MyContext())
         {
 
-            var query0 = ctx.MyEntities.Select(x => x).ToList();
+            //var query0 = ctx.MyEntities.Select(x => x).ToList();
 
 
             var query1 = ctx.MyEntities.Select(x => x.OwnedReferenceSharedRoot.OwnedReferenceSharedBranch).AsNoTracking().ToList();

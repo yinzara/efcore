@@ -156,7 +156,7 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
 
                             if (methodCallSubquery.Method.IsGenericMethod
                                 && methodCallSubquery.Method.GetGenericMethodDefinition() == QueryableMethods.AsQueryable
-                                && methodCallSubquery.Arguments[0] is JsonCollectionResultExpression jcre)
+                                && methodCallSubquery.Arguments[0] is JsonCollectionResultExpression2 jcre)
                             {
                                 return Visit(jcre);
                             }
@@ -174,9 +174,18 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
                             materializeCollectionNavigationExpression.Navigation,
                             materializeCollectionNavigationExpression.Navigation.ClrType.GetSequenceType());
 
-                    case JsonCollectionResultExpression jsonCollectionResultExpression:
+                    //case JsonCollectionResultExpression jsonCollectionResultExpression:
 
-                        _clientProjections!.Add(jsonCollectionResultExpression.JsonProjectionExpression);
+                    //    _clientProjections!.Add(jsonCollectionResultExpression.JsonProjectionExpression);
+
+                    //    return new CollectionResultExpression(
+                    //        new ProjectionBindingExpression(_selectExpression, _clientProjections!.Count - 1, jsonCollectionResultExpression.Navigation.ClrType),
+                    //        jsonCollectionResultExpression.Navigation,
+                    //        jsonCollectionResultExpression.Navigation.ClrType.GetSequenceType());
+
+                    case JsonCollectionResultExpression2 jsonCollectionResultExpression:
+
+                        _clientProjections!.Add(jsonCollectionResultExpression.JsonQueryExpression);
 
                         return new CollectionResultExpression(
                             new ProjectionBindingExpression(_selectExpression, _clientProjections!.Count - 1, jsonCollectionResultExpression.Navigation.ClrType),
@@ -310,11 +319,11 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
                 // TODO: Make this easier to understand some day.
                 EntityProjectionExpression entityProjectionExpression;
 
-                if (entityShaperExpression.ValueBufferExpression is JsonProjectionExpression jsonProjectionExpression)
+                if (entityShaperExpression.ValueBufferExpression is JsonQueryExpression jsonQueryExpression)
                 {
                     if (_indexBasedBinding)
                     {
-                        var projectionBinding = AddClientProjection(jsonProjectionExpression, typeof(ValueBuffer));
+                        var projectionBinding = AddClientProjection(jsonQueryExpression, typeof(ValueBuffer));
 
                         return entityShaperExpression.Update(projectionBinding);
                     }
@@ -323,6 +332,20 @@ public class RelationalProjectionBindingExpressionVisitor : ExpressionVisitor
                         return QueryCompilationContext.NotTranslatedExpression;
                     }
                 }
+
+                //if (entityShaperExpression.ValueBufferExpression is JsonProjectionExpression jsonProjectionExpression)
+                //{
+                //    if (_indexBasedBinding)
+                //    {
+                //        var projectionBinding = AddClientProjection(jsonProjectionExpression, typeof(ValueBuffer));
+
+                //        return entityShaperExpression.Update(projectionBinding);
+                //    }
+                //    else
+                //    {
+                //        return QueryCompilationContext.NotTranslatedExpression;
+                //    }
+                //}
 
                 if (entityShaperExpression.ValueBufferExpression is ProjectionBindingExpression projectionBindingExpression)
                 {
